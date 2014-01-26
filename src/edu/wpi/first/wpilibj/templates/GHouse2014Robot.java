@@ -38,8 +38,8 @@ public class GHouse2014Robot extends SimpleRobot {
     private Compressor compressor = new Compressor(PRESSURE_SWITCH_CH, COMPRESSOR_RELAY_CH);
     
     /*** Drivetrain Components ***/
-    private int leftControllerChannels[] = {11, 12, 13};
-    private int rightControllerChannels[] = {14, 15, 16};
+    private final int leftControllerChannels[] = {11, 12, 13};
+    private final int rightControllerChannels[] = {14, 15, 16};
     private MultiCANJaguar leftController, rightController;
     private RobotDrive chassis;
     private Solenoid leftSpeedChangeSolenoid = new Solenoid(LEFT_SPEED_CHANGE_CH);
