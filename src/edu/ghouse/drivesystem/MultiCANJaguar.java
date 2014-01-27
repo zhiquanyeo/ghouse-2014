@@ -59,7 +59,7 @@ public class MultiCANJaguar implements SpeedController, LiveWindowSendable, Moto
                 controllers[i].setX(outputValue, syncGroup);
             }
         } catch (CANTimeoutException e) {
-            System.out.println("!!! WARNING: CANTimeoutException: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -73,7 +73,7 @@ public class MultiCANJaguar implements SpeedController, LiveWindowSendable, Moto
                 controllers[i].disableControl();
             }
         } catch (CANTimeoutException e) {
-            System.out.println("!!! WARNING: CANTimeoutException: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -150,7 +150,7 @@ public class MultiCANJaguar implements SpeedController, LiveWindowSendable, Moto
                 controllers[i].disableControl();
             }
         } catch (CANTimeoutException e) {
-            System.out.println("WARNING: CANTimeoutException: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

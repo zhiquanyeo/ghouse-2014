@@ -58,6 +58,7 @@ public class RobotCamera {
         double rightScore;
         double tapeWidthScore;
         double verticalScore;
+        double distance;
     }
     
     //Scoring variables
@@ -81,6 +82,8 @@ public class RobotCamera {
         verticalTargetCount = horizontalTargetCount = 0;
     }
     
+    //Call this every loop in autonomous/teleop, or whenever you want to get distance readings
+    //This returns the BEST target
     public TargetReport getTargetReport() {
         //Actually get the image
         try {
@@ -119,6 +122,7 @@ public class RobotCamera {
                 
                 //Zero out scores and set verticalIndex to first target in case there are no horizontal targets
                 target.totalScore = target.leftScore = target.rightScore = target.tapeWidthScore = target.verticalScore = 0;
+                target.distance = -1; //Negative distance to mark as invalid
                 target.verticalIndex = verticalTargets[0];
                 
                 for (int i = 0; i < verticalTargetCount; i++) {
@@ -164,6 +168,8 @@ public class RobotCamera {
                     //horiz or vert index to get the particle report
                     ParticleAnalysisReport distanceReport = filteredImage.getParticleAnalysisReport(target.verticalIndex);
                     double distance = computeDistance(filteredImage, distanceReport, target.verticalIndex);
+                    //Save the distance
+                    target.distance = distance;
                     if (target.Hot) {
                         System.out.println("Hot target located");
                         System.out.println("Distance: " + distance);
