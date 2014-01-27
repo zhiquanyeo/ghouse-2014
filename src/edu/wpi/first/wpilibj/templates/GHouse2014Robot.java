@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SimpleRobot;
 import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.SpeedController;
+import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.can.CANTimeoutException;
 
 /**
@@ -29,10 +30,23 @@ public class GHouse2014Robot extends SimpleRobot {
     private final int PRESSURE_SWITCH_CH = 1; //Digital IO
     private final int COMPRESSOR_RELAY_CH = 2; //Digital IO
     
-    //==== Drivetrain constants ====
+    //==== Drivetrain Constants ====
     //Speed change solenoid channels
     private final int LEFT_SPEED_CHANGE_CH = 1; //Pneumatics Slot
     private final int RIGHT_SPEED_CHANGE_CH = 2; //Pneumatics Slot
+    
+    //==== Feed Mechanism Constants ====
+    //Feed arm solenoid channels
+    private final int FEED_LEFT_ARM_CH = 3; //Pneumatics Slot
+    private final int FEED_RIGHT_ARM_CH = 4; //Pneumatics Slot
+    private final int FEED_MOTOR_CH = 1; //PWM Port
+    
+    //==== Scissor Lift Mechanism Constants ====
+    //Scissor Lift
+    private final int SCISSOR_LEFT_PISTON_CH = 5; //Pneumatics Slot
+    private final int SCISSOR_RIGHT_PISTON_CH = 6; //Pneumatics Slot
+    
+    
     
     /*** General Components ***/
     private Compressor compressor = new Compressor(PRESSURE_SWITCH_CH, COMPRESSOR_RELAY_CH);
@@ -44,6 +58,15 @@ public class GHouse2014Robot extends SimpleRobot {
     private RobotDrive chassis;
     private Solenoid leftSpeedChangeSolenoid = new Solenoid(LEFT_SPEED_CHANGE_CH);
     private Solenoid rightSpeedChangeSolenoid = new Solenoid(RIGHT_SPEED_CHANGE_CH);
+    
+    /*** Feed Mechanism ***/
+    private Solenoid leftFeedArmSolenoid = new Solenoid(FEED_LEFT_ARM_CH);
+    private Solenoid rightFeedArmSolenoid = new Solenoid(FEED_RIGHT_ARM_CH);
+    private Victor feedMotor = new Victor(FEED_MOTOR_CH);
+    
+    /*** Scissor Lift Mechanism ***/
+    private Solenoid leftScissorPiston = new Solenoid(SCISSOR_LEFT_PISTON_CH);
+    private Solenoid rightScissorPiston = new Solenoid(SCISSOR_RIGHT_PISTON_CH);
 
     public GHouse2014Robot() {
         try {
