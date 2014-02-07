@@ -9,13 +9,11 @@ package edu.wpi.first.wpilibj.templates;
 
 
 import edu.ghouse.drivesystem.MultiCANJaguar;
-import edu.wpi.first.wpilibj.CANJaguar;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SimpleRobot;
 import edu.wpi.first.wpilibj.Solenoid;
-import edu.wpi.first.wpilibj.SpeedController;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.can.CANTimeoutException;
 
@@ -80,9 +78,13 @@ public class GHouse2014Robot extends SimpleRobot {
             
             chassis = new RobotDrive(leftController, rightController);
             
+            //We need to invert the motors
+            chassis.setInvertedMotor(RobotDrive.MotorType.kRearLeft, true);
+            chassis.setInvertedMotor(RobotDrive.MotorType.kRearRight, true);
+            
             //Setup routines
             //Start the compressor
-            //compressor.start();
+            compressor.start();
             
         } catch (CANTimeoutException e) {
             System.out.println("WARNING: CANTimeoutException: " + e.getMessage());
@@ -112,6 +114,7 @@ public class GHouse2014Robot extends SimpleRobot {
             
             //2) Act
             chassis.arcadeDrive(driveStick);
+            
         }
     }
     
