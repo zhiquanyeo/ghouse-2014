@@ -9,7 +9,9 @@ package edu.wpi.first.wpilibj.templates;
 
 
 import edu.ghouse.drivesystem.MultiCANJaguar;
+import edu.wpi.first.wpilibj.CANJaguar;
 import edu.wpi.first.wpilibj.Compressor;
+import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SimpleRobot;
 import edu.wpi.first.wpilibj.Solenoid;
@@ -52,8 +54,8 @@ public class GHouse2014Robot extends SimpleRobot {
     private Compressor compressor = new Compressor(PRESSURE_SWITCH_CH, COMPRESSOR_RELAY_CH);
     
     /*** Drivetrain Components ***/
-    private final int leftControllerChannels[] = {11, 12, 13};
-    private final int rightControllerChannels[] = {14, 15, 16};
+    private final int leftControllerChannels[] = {11, 19, 15};
+    private final int rightControllerChannels[] = {16, 13, 12};
     private MultiCANJaguar leftController, rightController;
     private RobotDrive chassis;
     private Solenoid leftSpeedChangeSolenoid = new Solenoid(LEFT_SPEED_CHANGE_CH);
@@ -68,6 +70,9 @@ public class GHouse2014Robot extends SimpleRobot {
     private Solenoid leftScissorPiston = new Solenoid(SCISSOR_LEFT_PISTON_CH);
     private Solenoid rightScissorPiston = new Solenoid(SCISSOR_RIGHT_PISTON_CH);
 
+    Joystick driveStick = new Joystick(1);
+    
+    
     public GHouse2014Robot() {
         try {
             leftController = new MultiCANJaguar(leftControllerChannels);
@@ -77,10 +82,11 @@ public class GHouse2014Robot extends SimpleRobot {
             
             //Setup routines
             //Start the compressor
-            compressor.start();
+            //compressor.start();
             
         } catch (CANTimeoutException e) {
             System.out.println("WARNING: CANTimeoutException: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -105,6 +111,7 @@ public class GHouse2014Robot extends SimpleRobot {
             //TODO: Take in any sensor data that we need
             
             //2) Act
+            chassis.arcadeDrive(driveStick);
         }
     }
     
