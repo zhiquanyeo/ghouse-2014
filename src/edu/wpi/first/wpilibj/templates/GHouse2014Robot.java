@@ -12,6 +12,7 @@ import edu.ghouse.drivesystem.MultiCANJaguar;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SimpleRobot;
@@ -40,6 +41,8 @@ public class GHouse2014Robot extends SimpleRobot {
     //==== Drivetrain Constants ====
     //Speed change solenoid channels
     private final int SPEED_CHANGE_CH = 1; //Pneumatics Slot
+    private final int ENCODER_A_CH = 4;
+    private final int ENCODER_B_CH = 5;
     
     //==== Feed Mechanism Constants ====
     //Feed arm solenoid channels
@@ -69,6 +72,7 @@ public class GHouse2014Robot extends SimpleRobot {
     private MultiCANJaguar leftController, rightController;
     private RobotDrive chassis;
     private Solenoid speedChangeSolenoid = new Solenoid(SPEED_CHANGE_CH);
+    private Encoder encoder = new Encoder(ENCODER_A_CH, ENCODER_B_CH);
     
     /*** Feed Mechanism ***/
     private DoubleSolenoid feedSolenoid = new DoubleSolenoid(FEED_DOWN_CH, FEED_UP_CH);
@@ -183,6 +187,7 @@ public class GHouse2014Robot extends SimpleRobot {
                 feedMotor.set(0.5);
                 SmartDashboard.putBoolean("Feed Arm Up", feedArmUp);
                 SmartDashboard.putBoolean("Feed Arm In Transit", feedArmInTransit);
+                SmartDashboard.putBoolean("Can Raise Scissor", !feedArmUp);
             } 
             else if (feedInsideSensor.get() == false && feedOutsideSensor.get() == true) {
                 //Inside sensor off, outside sensor on => feed arm DOWN
@@ -191,6 +196,7 @@ public class GHouse2014Robot extends SimpleRobot {
                 feedMotor.stopMotor();
                 SmartDashboard.putBoolean("Feed Arm Up", feedArmUp);
                 SmartDashboard.putBoolean("Feed Arm In Transit", feedArmInTransit);
+                SmartDashboard.putBoolean("Can Raise Scissor", !feedArmUp);
             }
             else {
                 feedArmInTransit = true;
@@ -241,6 +247,9 @@ public class GHouse2014Robot extends SimpleRobot {
                 shooterMotor.stopMotor();
             }
             
+            //=====  Scissor =====
+            //ONLY raise the scissor if the feed is DOWN
+            
             
             //===== 
             
@@ -254,7 +263,7 @@ public class GHouse2014Robot extends SimpleRobot {
      * This function is called once each time the robot enters test mode.
      */
     public void test() {
-    
+        
     }
     
     //Support Functions
