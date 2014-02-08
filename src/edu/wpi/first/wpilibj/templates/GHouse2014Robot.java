@@ -28,12 +28,11 @@ public class GHouse2014Robot extends SimpleRobot {
     /*** Constants ***/
     //==== General Constants ====
     private final int PRESSURE_SWITCH_CH = 1; //Digital IO
-    private final int COMPRESSOR_RELAY_CH = 2; //Digital IO
+    private final int COMPRESSOR_RELAY_CH = 1; //Relay Slot
     
     //==== Drivetrain Constants ====
     //Speed change solenoid channels
-    private final int LEFT_SPEED_CHANGE_CH = 1; //Pneumatics Slot
-    private final int RIGHT_SPEED_CHANGE_CH = 2; //Pneumatics Slot
+    private final int SPEED_CHANGE_CH = 1; //Pneumatics Slot
     
     //==== Feed Mechanism Constants ====
     //Feed arm solenoid channels
@@ -46,6 +45,10 @@ public class GHouse2014Robot extends SimpleRobot {
     private final int SCISSOR_LEFT_PISTON_CH = 5; //Pneumatics Slot
     private final int SCISSOR_RIGHT_PISTON_CH = 6; //Pneumatics Slot
     
+    //==== Shooter Mechanism Constants ====
+    //Shooter Motor
+    private final int SHOOTER_MOTOR_CH = 2; //PWM Port
+    
     
     
     /*** General Components ***/
@@ -56,8 +59,7 @@ public class GHouse2014Robot extends SimpleRobot {
     private final int rightControllerChannels[] = {16, 13, 12};
     private MultiCANJaguar leftController, rightController;
     private RobotDrive chassis;
-    private Solenoid leftSpeedChangeSolenoid = new Solenoid(LEFT_SPEED_CHANGE_CH);
-    private Solenoid rightSpeedChangeSolenoid = new Solenoid(RIGHT_SPEED_CHANGE_CH);
+    private Solenoid speedChangeSolenoid = new Solenoid(SPEED_CHANGE_CH);
     
     /*** Feed Mechanism ***/
     private Solenoid leftFeedArmSolenoid = new Solenoid(FEED_LEFT_ARM_CH);
@@ -67,7 +69,11 @@ public class GHouse2014Robot extends SimpleRobot {
     /*** Scissor Lift Mechanism ***/
     private Solenoid leftScissorPiston = new Solenoid(SCISSOR_LEFT_PISTON_CH);
     private Solenoid rightScissorPiston = new Solenoid(SCISSOR_RIGHT_PISTON_CH);
+    
+    /*** Shooter Mechanism ***/
+    private Victor shooterMotor = new Victor(SHOOTER_MOTOR_CH);
 
+    /*** Human Interface Components ***/
     Joystick driveStick = new Joystick(1);
     
     
@@ -111,9 +117,23 @@ public class GHouse2014Robot extends SimpleRobot {
         while (isEnabled() && isOperatorControl()) {
             //1) Sense
             //TODO: Take in any sensor data that we need
+            //Always drive!
+            chassis.arcadeDrive(driveStick);
+            
+            //===== SPEED CHANGE DECISIONS =====
+            //Take note of whether or not the trigger is pressed
+            //If so, activate the speed change. The trigger is button 1
+            if (driveStick.getButton(Joystick.ButtonType.kTrigger) == true) { //pressed
+                speedChangeSolenoid.set(true);
+            }
+            else {
+                speedChangeSolenoid.set(false);
+            }
+            
+            //===== 
             
             //2) Act
-            chassis.arcadeDrive(driveStick);
+            
             
         }
     }
