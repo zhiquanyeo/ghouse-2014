@@ -9,6 +9,7 @@ package edu.wpi.first.wpilibj.templates;
 
 
 import edu.ghouse.drivesystem.MultiCANJaguar;
+import edu.ghouse.positional.DeadReckoningEngine;
 import edu.ghouse.robot2014.FeedMechanism;
 import edu.ghouse.robot2014.ScissorMechanism;
 import edu.wpi.first.wpilibj.Compressor;
@@ -108,12 +109,17 @@ public class GHouse2014Robot extends SimpleRobot {
     
     /*** Shooter Mechanism ***/
     private Victor shooterMotor = new Victor(SHOOTER_MOTOR_CH);
+    
+    //Support objects
+    private final double AXLE_LENGTH = 2.359375; //feet
+    private DeadReckoningEngine deadReckoningEngine = new DeadReckoningEngine(AXLE_LENGTH, leftEncoder, rightEncoder);
 
     /*** Human Interface Components ***/
     Joystick driveStick = new Joystick(1);
     
     
-    public GHouse2014Robot() {
+    public void robotInit() {
+        System.out.println("Booting up");
         SmartDashboard.putBoolean("Using Gamepad", IS_USING_GAMEPAD);
         
         //Set up the distance per pulse for the encoder
@@ -145,9 +151,17 @@ public class GHouse2014Robot extends SimpleRobot {
      */
     public void autonomous() {
         chassis.setSafetyEnabled(false);
+        leftEncoder.reset();
+        rightEncoder.reset();
+        leftEncoder.start();
+        rightEncoder.start();
+        deadReckoningEngine.reset();
+        deadReckoningEngine.start();
         while (isEnabled() && isAutonomous()) {
-            
+            //Figure out where we are
+            deadReckoningEngine.updateState();
         }
+        deadReckoningEngine.stop();
     }
 
     /**
@@ -239,6 +253,11 @@ public class GHouse2014Robot extends SimpleRobot {
      * This function is called once each time the robot enters test mode.
      */
     public void test() {
+        
+    }
+    
+    //Stuff to do when the robot is disabled
+    public void disabled() {
         
     }
     
