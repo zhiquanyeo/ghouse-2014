@@ -9,6 +9,8 @@ package edu.wpi.first.wpilibj.templates;
 
 
 import edu.ghouse.drivesystem.MultiCANJaguar;
+import edu.ghouse.robot2014.FeedMechanism;
+import edu.ghouse.robot2014.ScissorMechanism;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
@@ -17,11 +19,9 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SimpleRobot;
 import edu.wpi.first.wpilibj.Solenoid;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.can.CANTimeoutException;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import java.util.Date;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -65,14 +65,19 @@ public class GHouse2014Robot extends SimpleRobot {
     
     //==== Scissor Lift Mechanism Constants ====
     //Scissor Lift
-    private final int SCISSOR_LEFT_PISTON_CH = 5; //Pneumatics Slot
-    private final int SCISSOR_RIGHT_PISTON_CH = 6; //Pneumatics Slot
+    private final int SCISSOR_UP_CH = 5; //Pneumatics Slot
+    private final int SCISSOR_DOWN_CH = 6; //Pneumatics Slot
+    private final int SCISSOR_INSIDE_SENSOR_CH = 8; //Digital IO
+    private final int SCISSOR_OUTSIDE_SENSOR_CH = 9; //Digital IO
     
     //==== Shooter Mechanism Constants ====
     //Shooter Motor
     private final int SHOOTER_MOTOR_CH = 2; //PWM Port
     
     
+    //==== Human Interface Button Constants ====
+    private final int FEED_ARM_TOGGLE_BUTTON = 2;
+    private final int SPEED_CHANGE_BUTTON = 8;
     
     /*** General Components ***/
     private Compressor compressor = new Compressor(PRESSURE_SWITCH_CH, COMPRESSOR_RELAY_CH);
@@ -91,10 +96,15 @@ public class GHouse2014Robot extends SimpleRobot {
     private Victor feedMotor = new Victor(FEED_MOTOR_CH);
     private DigitalInput feedInsideSensor = new DigitalInput(FEED_ARM_INSIDE_SENSOR_CH);
     private DigitalInput feedOutsideSensor = new DigitalInput(FEED_ARM_OUTSIDE_SENSOR_CH);
+    //object to manage the feed system
+    private FeedMechanism feedMechanism = new FeedMechanism(feedSolenoid, feedMotor, feedInsideSensor, feedOutsideSensor);
     
     /*** Scissor Lift Mechanism ***/
-    private Solenoid leftScissorPiston = new Solenoid(SCISSOR_LEFT_PISTON_CH);
-    private Solenoid rightScissorPiston = new Solenoid(SCISSOR_RIGHT_PISTON_CH);
+    private DoubleSolenoid scissorSolenoid = new DoubleSolenoid(SCISSOR_UP_CH, SCISSOR_DOWN_CH);
+    private DigitalInput scissorInsideSensor = new DigitalInput(SCISSOR_INSIDE_SENSOR_CH);
+    private DigitalInput scissorOutsideSensor = new DigitalInput(SCISSOR_OUTSIDE_SENSOR_CH);
+    //object to manage the scissor system
+    private ScissorMechanism scissorMechanism = new ScissorMechanism(scissorSolenoid, scissorInsideSensor, scissorOutsideSensor);
     
     /*** Shooter Mechanism ***/
     private Victor shooterMotor = new Victor(SHOOTER_MOTOR_CH);
@@ -102,13 +112,6 @@ public class GHouse2014Robot extends SimpleRobot {
     /*** Human Interface Components ***/
     Joystick driveStick = new Joystick(1);
     
-    /*** Robot State ***/
-    private boolean feedArmUp = true;
-    private boolean feedArmInTransit = false;
-    
-    private final int SHUTOFF_TIME = 2000; //ms
-    private long stopRequestedTime;
-    private boolean shouldShutOffFeedSolenoid = false;
     
     public GHouse2014Robot() {
         SmartDashboard.putBoolean("Using Gamepad", IS_USING_GAMEPAD);
@@ -161,18 +164,9 @@ public class GHouse2014Robot extends SimpleRobot {
         while (isEnabled() && isOperatorControl()) {
             //1) Sense
             
-            //==== Encoders =====
-            SmartDashboard.putNumber("Left Encoder Distance", leftEncoder.getDistance());
-            SmartDashboard.putNumber("Right Encoder Distance", rightEncoder.getDistance());
+            //update the feedMechanism
+            feedMechanism.updateState();
             
-            //Figure out if we should shut off the feed solenoid
-            if (shouldShutOffFeedSolenoid) {
-                if (System.currentTimeMillis() - stopRequestedTime > SHUTOFF_TIME) {
-                    shouldShutOffFeedSolenoid = false;
-                    feedSolenoid.set(DoubleSolenoid.Value.kOff);
-                    System.out.println("Feed solenoid set to OFF");
-                }
-            }
             
             //===== DRIVING =====
             if (IS_USING_GAMEPAD) {
@@ -186,7 +180,7 @@ public class GHouse2014Robot extends SimpleRobot {
             //Take note of whether or not the trigger is pressed
             //If so, activate the speed change. The trigger is button 1
             if (IS_USING_GAMEPAD) {
-                if (driveStick.getRawButton(8) == true) { //pressed
+                if (driveStick.getRawButton(SPEED_CHANGE_BUTTON) == true) { //pressed
                     speedChangeSolenoid.set(true);
                 }
                 else {
@@ -202,65 +196,21 @@ public class GHouse2014Robot extends SimpleRobot {
                 }
             }
             
-            //==== Feed Mechanism ====
-            //TODO This should go into update state
-            if (feedInsideSensor.get() == true && feedOutsideSensor.get() == false) {
-                //Inside sensor on, outside sensor off => feed arm UP
-                feedArmUp = false;
-                feedArmInTransit = false;
-                feedMotor.set(1);
-                SmartDashboard.putBoolean("Feed Arm Up", feedArmUp);
-                SmartDashboard.putBoolean("Feed Arm In Transit", feedArmInTransit);
-                SmartDashboard.putBoolean("Can Raise Scissor", !feedArmUp);
-            } 
-            else if (feedInsideSensor.get() == false && feedOutsideSensor.get() == true) {
-                //Inside sensor off, outside sensor on => feed arm DOWN
-                feedArmUp = true;
-                feedArmInTransit = false;
-                feedMotor.stopMotor();
-                SmartDashboard.putBoolean("Feed Arm Up", feedArmUp);
-                SmartDashboard.putBoolean("Feed Arm In Transit", feedArmInTransit);
-                SmartDashboard.putBoolean("Can Raise Scissor", !feedArmUp);
+            if (driveStick.getRawButton(FEED_ARM_TOGGLE_BUTTON)) {
+                //button was pressed. are we up or down?
+                //don't do anything while we are in transit
+                if (!feedMechanism.isArmInTransit()) {
+                    //If the arm is up, we lower it
+                    if (feedMechanism.isArmUp()) {
+                        feedMechanism.lowerArm();
+                    }
+                    else {
+                        feedMechanism.raiseArm();
+                    }
+                }
             }
-            else {
-                feedArmInTransit = true;
-                feedMotor.stopMotor();
-                SmartDashboard.putBoolean("Feed Arm In Transit", feedArmInTransit);
-            }
-            feedMotor.Feed();
             
-            if (IS_USING_GAMEPAD) {
-                if (driveStick.getRawButton(2)) {
-                    //button was pressed. are we up or down?
-                    //don't do anything while we are in transit
-                    if (!feedArmInTransit) {
-                        if (feedArmUp == false) {
-                            feedSolenoid.set(DoubleSolenoid.Value.kForward);
-                            shouldShutOffFeedSolenoid = true;
-                            stopRequestedTime = System.currentTimeMillis();
-                        }
-                        else {
-                            feedSolenoid.set(DoubleSolenoid.Value.kReverse);
-                            shouldShutOffFeedSolenoid = true;
-                            stopRequestedTime = System.currentTimeMillis();
-                        }
-                    }
-                }
-            }
-            else {
-                if (driveStick.getButton(Joystick.ButtonType.kTop)) {
-                    //button was pressed. are we up or down?
-                    //don't do anything while we are in transit
-                    if (!feedArmInTransit) {
-                        if (feedArmUp == false) {
-                            feedSolenoid.set(DoubleSolenoid.Value.kForward);
-                        }
-                        else {
-                            feedSolenoid.set(DoubleSolenoid.Value.kReverse);
-                        }
-                    }
-                }
-            }
+            
             
             //===== SHOOTER =====
             //TODO Test only. need to integrate with choo-choo limit switch
@@ -280,6 +230,8 @@ public class GHouse2014Robot extends SimpleRobot {
             //2) Act
             
             
+            //Finally update driver station
+            updateRobotState();
         }
     }
     
@@ -292,6 +244,14 @@ public class GHouse2014Robot extends SimpleRobot {
     
     //Support Functions
     private void updateRobotState() {
+        //This will update all the robot state that we need on the driver station
+        //==== Feed Mechanism Status ====
+        SmartDashboard.putBoolean("Feed Arm Up", feedMechanism.isArmUp());
+        SmartDashboard.putBoolean("Feed Arm In Transit", feedMechanism.isArmInTransit());
+        SmartDashboard.putBoolean("Can Raise Scissor", !feedMechanism.isArmUp());
         
+        //==== Encoder Status ====
+        SmartDashboard.putNumber("Left Encoder Distance", leftEncoder.getDistance());
+        SmartDashboard.putNumber("Right Encoder Distance", rightEncoder.getDistance());
     }
 }
