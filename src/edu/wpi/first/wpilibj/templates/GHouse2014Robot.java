@@ -41,8 +41,19 @@ public class GHouse2014Robot extends SimpleRobot {
     //==== Drivetrain Constants ====
     //Speed change solenoid channels
     private final int SPEED_CHANGE_CH = 1; //Pneumatics Slot
-    private final int ENCODER_A_CH = 4;
-    private final int ENCODER_B_CH = 5;
+    private final int ENCODER_RIGHT_A_CH = 4;
+    private final int ENCODER_RIGHT_B_CH = 5;
+    private final int ENCODER_LEFT_A_CH = 6;
+    private final int ENCODER_LEFT_B_CH = 7;
+    private final int ENCODER_PULSES_PER_ROTATION = 128;
+    //3 revolutions of encoder per 1 rotation of transmission
+    //TODO calculate distance per pulse
+    //Total pulse = 3x ENCODER_PULSE_PER_ROTATION
+    private final double WHEEL_DIAMETER = 4.0 / 12; //4 inches, converted to feet
+    private final double WHEEL_CIRCUMFERENCE = Math.PI * WHEEL_DIAMETER;
+    private final int ENCODER_TO_OUTPUT_RATIO = 3; 
+    private final int ENCODER_TOTAL_PULSES_PER_ROTATION = ENCODER_PULSES_PER_ROTATION * ENCODER_TO_OUTPUT_RATIO;
+    
     
     //==== Feed Mechanism Constants ====
     //Feed arm solenoid channels
@@ -72,7 +83,8 @@ public class GHouse2014Robot extends SimpleRobot {
     private MultiCANJaguar leftController, rightController;
     private RobotDrive chassis;
     private Solenoid speedChangeSolenoid = new Solenoid(SPEED_CHANGE_CH);
-    private Encoder encoder = new Encoder(ENCODER_A_CH, ENCODER_B_CH);
+    private Encoder rightEncoder = new Encoder(ENCODER_RIGHT_A_CH, ENCODER_RIGHT_B_CH, true);
+    private Encoder leftEncoder = new Encoder(ENCODER_LEFT_A_CH, ENCODER_LEFT_B_CH);
     
     /*** Feed Mechanism ***/
     private DoubleSolenoid feedSolenoid = new DoubleSolenoid(FEED_DOWN_CH, FEED_UP_CH);
@@ -100,6 +112,10 @@ public class GHouse2014Robot extends SimpleRobot {
     
     public GHouse2014Robot() {
         SmartDashboard.putBoolean("Using Gamepad", IS_USING_GAMEPAD);
+        
+        //Set up the distance per pulse for the encoder
+        leftEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION);
+        rightEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION);
         
         try {
             leftController = new MultiCANJaguar(leftControllerChannels);
@@ -136,10 +152,18 @@ public class GHouse2014Robot extends SimpleRobot {
      */
     public void operatorControl() {
         //TODO Do any initial resetting here
+        leftEncoder.reset();
+        rightEncoder.reset();
+        leftEncoder.start();
+        rightEncoder.start();
         
         //Default loop
         while (isEnabled() && isOperatorControl()) {
             //1) Sense
+            
+            //==== Encoders =====
+            SmartDashboard.putNumber("Left Encoder Distance", leftEncoder.getDistance());
+            SmartDashboard.putNumber("Right Encoder Distance", rightEncoder.getDistance());
             
             //Figure out if we should shut off the feed solenoid
             if (shouldShutOffFeedSolenoid) {
@@ -184,7 +208,7 @@ public class GHouse2014Robot extends SimpleRobot {
                 //Inside sensor on, outside sensor off => feed arm UP
                 feedArmUp = false;
                 feedArmInTransit = false;
-                feedMotor.set(0.5);
+                feedMotor.set(1);
                 SmartDashboard.putBoolean("Feed Arm Up", feedArmUp);
                 SmartDashboard.putBoolean("Feed Arm In Transit", feedArmInTransit);
                 SmartDashboard.putBoolean("Can Raise Scissor", !feedArmUp);
