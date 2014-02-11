@@ -152,24 +152,18 @@ public class GHouse2014Robot extends SimpleRobot {
      */
     public void autonomous() {
         chassis.setSafetyEnabled(false);
-//        leftEncoder.reset();
-//        rightEncoder.reset();
-//        leftEncoder.start();
-//        rightEncoder.start();
-//        deadReckoningEngine.reset();
-//        deadReckoningEngine.start();
-//        while (isEnabled() && isAutonomous()) {
-//            //Figure out where we are
-//            deadReckoningEngine.updateState();
-//        }
-//        deadReckoningEngine.stop();
-        
-          compressor.stop();
+        leftEncoder.reset();
+        rightEncoder.reset();
+        leftEncoder.start();
+        rightEncoder.start();
+        deadReckoningEngine.reset();
+        deadReckoningEngine.start();
         while (isEnabled() && isAutonomous()) {
-            SmartDashboard.putBoolean("Scissor Outside", !scissorOutsideSensor.get());
-            SmartDashboard.putBoolean("Scissor Inside", !scissorInsideSensor.get());
-            System.out.println("Scissor Outside: " + !scissorOutsideSensor.get() + ", Inside: " + !scissorInsideSensor.get());
+            //Figure out where we are
+            deadReckoningEngine.updateState();
         }
+        deadReckoningEngine.stop();
+        
     }
 
     /**
@@ -238,9 +232,7 @@ public class GHouse2014Robot extends SimpleRobot {
             
             //Scissor mechanism
             if (driveStick.getRawButton(SCISSOR_TOGGLE_BUTTON)) {
-                System.out.println("Scissor button pressed");
                 if (!scissorMechanism.isScissorInTransit()) {
-                    System.out.println("OK to do scissor stuff");
                     if (scissorMechanism.isScissorUp()) {
                         //we can just lower
                         scissorMechanism.lowerScissor();
@@ -249,9 +241,7 @@ public class GHouse2014Robot extends SimpleRobot {
                         //IMPORTANT!!! MUST CHECK FOR ARM POSITION
                         //DO NOT UNDER ANY CIRCUMSTANCES RAISE THE SCISSOR WHEN 
                         //THE ARM IS UP. BAD THINGS WILL HAPPEN
-                        System.out.println("Attempting to raise scissor");
-                        if (!feedMechanism.isArmUp()) {
-                            System.out.println("Raising");
+                        if (!feedMechanism.isArmUp() && !feedMechanism.isArmInTransit()) {
                             scissorMechanism.raiseScissor();
                         }
                     }
@@ -289,12 +279,7 @@ public class GHouse2014Robot extends SimpleRobot {
      * This function is called once each time the robot enters test mode.
      */
     public void test() {
-        compressor.stop();
-        while (isEnabled() && isTest()) {
-            SmartDashboard.putBoolean("Scissor Outside", !scissorOutsideSensor.get());
-            SmartDashboard.putBoolean("Scissor Inside", !scissorInsideSensor.get());
-            System.out.println("Scissor Outside: " + !scissorOutsideSensor.get() + ", Inside: " + !scissorInsideSensor.get());
-        }
+        
         
     }
     
