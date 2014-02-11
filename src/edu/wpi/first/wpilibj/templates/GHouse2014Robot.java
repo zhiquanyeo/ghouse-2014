@@ -66,8 +66,8 @@ public class GHouse2014Robot extends SimpleRobot {
     
     //==== Scissor Lift Mechanism Constants ====
     //Scissor Lift
-    private final int SCISSOR_UP_CH = 5; //Pneumatics Slot
-    private final int SCISSOR_DOWN_CH = 6; //Pneumatics Slot
+    private final int SCISSOR_UP_CH = 4; //Pneumatics Slot
+    private final int SCISSOR_DOWN_CH = 5; //Pneumatics Slot
     private final int SCISSOR_INSIDE_SENSOR_CH = 8; //Digital IO
     private final int SCISSOR_OUTSIDE_SENSOR_CH = 9; //Digital IO
     
@@ -79,6 +79,7 @@ public class GHouse2014Robot extends SimpleRobot {
     //==== Human Interface Button Constants ====
     private final int FEED_ARM_TOGGLE_BUTTON = 2;
     private final int SPEED_CHANGE_BUTTON = 8;
+    private final int SCISSOR_TOGGLE_BUTTON = 4;
     
     /*** General Components ***/
     private Compressor compressor = new Compressor(PRESSURE_SWITCH_CH, COMPRESSOR_RELAY_CH);
@@ -151,17 +152,24 @@ public class GHouse2014Robot extends SimpleRobot {
      */
     public void autonomous() {
         chassis.setSafetyEnabled(false);
-        leftEncoder.reset();
-        rightEncoder.reset();
-        leftEncoder.start();
-        rightEncoder.start();
-        deadReckoningEngine.reset();
-        deadReckoningEngine.start();
+//        leftEncoder.reset();
+//        rightEncoder.reset();
+//        leftEncoder.start();
+//        rightEncoder.start();
+//        deadReckoningEngine.reset();
+//        deadReckoningEngine.start();
+//        while (isEnabled() && isAutonomous()) {
+//            //Figure out where we are
+//            deadReckoningEngine.updateState();
+//        }
+//        deadReckoningEngine.stop();
+        
+          compressor.stop();
         while (isEnabled() && isAutonomous()) {
-            //Figure out where we are
-            deadReckoningEngine.updateState();
+            SmartDashboard.putBoolean("Scissor Outside", !scissorOutsideSensor.get());
+            SmartDashboard.putBoolean("Scissor Inside", !scissorInsideSensor.get());
+            System.out.println("Scissor Outside: " + !scissorOutsideSensor.get() + ", Inside: " + !scissorInsideSensor.get());
         }
-        deadReckoningEngine.stop();
     }
 
     /**
@@ -180,7 +188,7 @@ public class GHouse2014Robot extends SimpleRobot {
             
             //update the feedMechanism
             feedMechanism.updateState();
-            
+            scissorMechanism.updateState();
             
             //===== DRIVING =====
             if (IS_USING_GAMEPAD) {
@@ -219,7 +227,33 @@ public class GHouse2014Robot extends SimpleRobot {
                         feedMechanism.lowerArm();
                     }
                     else {
-                        feedMechanism.raiseArm();
+                        //DO NOT RAISE ARM WHEN SCISSOR IS UP!
+                        //VERY IMPORTANT! KITTENS WILL DIE
+                        if (!scissorMechanism.isScissorUp() && !scissorMechanism.isScissorInTransit()) {
+                            feedMechanism.raiseArm();
+                        }
+                    }
+                }
+            }
+            
+            //Scissor mechanism
+            if (driveStick.getRawButton(SCISSOR_TOGGLE_BUTTON)) {
+                System.out.println("Scissor button pressed");
+                if (!scissorMechanism.isScissorInTransit()) {
+                    System.out.println("OK to do scissor stuff");
+                    if (scissorMechanism.isScissorUp()) {
+                        //we can just lower
+                        scissorMechanism.lowerScissor();
+                    }
+                    else {
+                        //IMPORTANT!!! MUST CHECK FOR ARM POSITION
+                        //DO NOT UNDER ANY CIRCUMSTANCES RAISE THE SCISSOR WHEN 
+                        //THE ARM IS UP. BAD THINGS WILL HAPPEN
+                        System.out.println("Attempting to raise scissor");
+                        if (!feedMechanism.isArmUp()) {
+                            System.out.println("Raising");
+                            scissorMechanism.raiseScissor();
+                        }
                     }
                 }
             }
@@ -229,9 +263,11 @@ public class GHouse2014Robot extends SimpleRobot {
             //===== SHOOTER =====
             //TODO Test only. need to integrate with choo-choo limit switch
             if (driveStick.getRawButton(7)) {
+                SmartDashboard.putBoolean("Shooter ON", true);
                 shooterMotor.set(0.5);
             }
             else {
+                SmartDashboard.putBoolean("Shooter ON", false);
                 shooterMotor.stopMotor();
             }
             
@@ -253,6 +289,12 @@ public class GHouse2014Robot extends SimpleRobot {
      * This function is called once each time the robot enters test mode.
      */
     public void test() {
+        compressor.stop();
+        while (isEnabled() && isTest()) {
+            SmartDashboard.putBoolean("Scissor Outside", !scissorOutsideSensor.get());
+            SmartDashboard.putBoolean("Scissor Inside", !scissorInsideSensor.get());
+            System.out.println("Scissor Outside: " + !scissorOutsideSensor.get() + ", Inside: " + !scissorInsideSensor.get());
+        }
         
     }
     
@@ -268,6 +310,11 @@ public class GHouse2014Robot extends SimpleRobot {
         SmartDashboard.putBoolean("Feed Arm Up", feedMechanism.isArmUp());
         SmartDashboard.putBoolean("Feed Arm In Transit", feedMechanism.isArmInTransit());
         SmartDashboard.putBoolean("Can Raise Scissor", !feedMechanism.isArmUp());
+        
+        //==== Scissor Mechanism Status ====
+        SmartDashboard.putBoolean("Scissor Up", scissorMechanism.isScissorUp());
+        SmartDashboard.putBoolean("Scissor In Transit", scissorMechanism.isScissorInTransit());
+        SmartDashboard.putBoolean("Can Raise Arm", !scissorMechanism.isScissorUp());
         
         //==== Encoder Status ====
         SmartDashboard.putNumber("Left Encoder Distance", leftEncoder.getDistance());

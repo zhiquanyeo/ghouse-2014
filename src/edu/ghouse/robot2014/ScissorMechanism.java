@@ -34,11 +34,15 @@ public class ScissorMechanism {
     }
     
     public void raiseScissor() {
-        
+        solenoid.set(DoubleSolenoid.Value.kForward);
+        stopRequested = true;
+        stopRequestedTime = System.currentTimeMillis();
     }
     
     public void lowerScissor() {
-        
+        solenoid.set(DoubleSolenoid.Value.kReverse);
+        stopRequested = true;
+        stopRequestedTime = System.currentTimeMillis();
     }
     
     public void updateState() {
@@ -49,11 +53,11 @@ public class ScissorMechanism {
             }
         }
         
-        if (insideSensor.get() && !outsideSensor.get()) {
+        if (!insideSensor.get() && outsideSensor.get()) {
             this.scissorUp = true;
             this.scissorInTransit = false;
         }
-        else if (!insideSensor.get() && outsideSensor.get()) {
+        else if (insideSensor.get() && !outsideSensor.get()) {
             this.scissorUp = false;
             this.scissorInTransit = false;
         }
