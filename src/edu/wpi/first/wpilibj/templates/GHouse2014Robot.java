@@ -12,6 +12,7 @@ import edu.ghouse.drivesystem.MultiCANJaguar;
 import edu.ghouse.positional.DeadReckoningEngine;
 import edu.ghouse.robot2014.FeedMechanism;
 import edu.ghouse.robot2014.ScissorMechanism;
+import edu.ghouse.robot2014.ShooterMechanism;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
@@ -74,6 +75,7 @@ public class GHouse2014Robot extends SimpleRobot {
     //==== Shooter Mechanism Constants ====
     //Shooter Motor
     private final int SHOOTER_MOTOR_CH = 2; //PWM Port
+    private final int SHOOTER_LIMIT_SWITCH_CH = 11; //Digital IO
     
     
     //==== Human Interface Button Constants ====
@@ -110,6 +112,8 @@ public class GHouse2014Robot extends SimpleRobot {
     
     /*** Shooter Mechanism ***/
     private Victor shooterMotor = new Victor(SHOOTER_MOTOR_CH);
+    private DigitalInput shooterLimitSwitch = new DigitalInput(SHOOTER_LIMIT_SWITCH_CH);
+    private ShooterMechanism shooterMechanism = new ShooterMechanism(shooterMotor, shooterLimitSwitch);
     
     //Support objects
     private final double AXLE_LENGTH = 2.359375; //feet
@@ -118,6 +122,9 @@ public class GHouse2014Robot extends SimpleRobot {
     /*** Human Interface Components ***/
     Joystick driveStick = new Joystick(1);
     
+    //test code only
+    private DigitalInput num12 = new DigitalInput(12);
+    private DigitalInput num13 = new DigitalInput(13);
     
     public void robotInit() {
         System.out.println("Booting up");
@@ -183,6 +190,13 @@ public class GHouse2014Robot extends SimpleRobot {
             //update the feedMechanism
             feedMechanism.updateState();
             scissorMechanism.updateState();
+            shooterMechanism.updateState();
+            if (scissorMechanism.isScissorUp()) {
+                feedMechanism.setMotorEnabled(false);
+            }
+            else {
+                feedMechanism.setMotorEnabled(true);
+            }
             
             //===== DRIVING =====
             if (IS_USING_GAMEPAD) {
@@ -236,6 +250,7 @@ public class GHouse2014Robot extends SimpleRobot {
                     if (scissorMechanism.isScissorUp()) {
                         //we can just lower
                         scissorMechanism.lowerScissor();
+                        feedMechanism.setMotorEnabled(true);
                     }
                     else {
                         //IMPORTANT!!! MUST CHECK FOR ARM POSITION
@@ -243,6 +258,8 @@ public class GHouse2014Robot extends SimpleRobot {
                         //THE ARM IS UP. BAD THINGS WILL HAPPEN
                         if (!feedMechanism.isArmUp() && !feedMechanism.isArmInTransit()) {
                             scissorMechanism.raiseScissor();
+                            //disable the motor on the feed system
+                            feedMechanism.setMotorEnabled(false);
                         }
                     }
                 }
@@ -252,14 +269,27 @@ public class GHouse2014Robot extends SimpleRobot {
             
             //===== SHOOTER =====
             //TODO Test only. need to integrate with choo-choo limit switch
-            if (driveStick.getRawButton(7)) {
-                SmartDashboard.putBoolean("Shooter ON", true);
-                shooterMotor.set(0.5);
+            if (driveStick.getRawButton(7) && !driveStick.getRawButton(5)) {
+                if (!shooterMechanism.isArmed())
+                    shooterMechanism.arm();
+                else {
+                    shooterMechanism.fire();
+                }
+            }
+            
+            //override
+            if (driveStick.getRawButton(5)) {
+                shooterMechanism.setOverride(true);
+                shooterMotor.set(0.3);
             }
             else {
-                SmartDashboard.putBoolean("Shooter ON", false);
-                shooterMotor.stopMotor();
+                if (shooterMechanism.getOverride()) {
+                    shooterMechanism.setOverride(false);
+                    shooterMotor.stopMotor();
+                }
+                
             }
+            
             
             //=====  Scissor =====
             //ONLY raise the scissor if the feed is DOWN
@@ -301,8 +331,13 @@ public class GHouse2014Robot extends SimpleRobot {
         SmartDashboard.putBoolean("Scissor In Transit", scissorMechanism.isScissorInTransit());
         SmartDashboard.putBoolean("Can Raise Arm", !scissorMechanism.isScissorUp());
         
+        //==== Shooter Mechanism Status ====
+        //SmartDashboard.putBoolean("Shooter Armed", shooterMechanism.isArmed());
+        SmartDashboard.putBoolean("Shooter Armed", shooterMechanism.isArmed());
+        
         //==== Encoder Status ====
         SmartDashboard.putNumber("Left Encoder Distance", leftEncoder.getDistance());
         SmartDashboard.putNumber("Right Encoder Distance", rightEncoder.getDistance());
+        
     }
 }

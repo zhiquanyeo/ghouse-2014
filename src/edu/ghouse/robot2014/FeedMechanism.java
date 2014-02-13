@@ -29,6 +29,8 @@ public class FeedMechanism {
     private boolean stopRequested = false;
     private final int SHUTOFF_TIME = 2000; //Shutoff time in ms
     
+    private boolean motorEnabled = true;
+    
     public FeedMechanism(DoubleSolenoid solenoid, Victor motor, 
                         DigitalInput insideSensor, DigitalInput outsideSensor) {
         this.solenoid = solenoid;
@@ -52,6 +54,10 @@ public class FeedMechanism {
         stopRequestedTime = System.currentTimeMillis();
     }
     
+    public void setMotorEnabled(boolean enabled) {
+        this.motorEnabled = enabled;
+    }
+    
     /**
      * This is where the magic happens
      * We have to keep track of the arm state
@@ -70,7 +76,12 @@ public class FeedMechanism {
         if (insideSensor.get() && !outsideSensor.get()) {
             this.armUp = false;
             this.armInTransit = false;
-            this.motor.set(1);
+            if (this.motorEnabled) {
+                this.motor.set(1);
+            }
+            else {
+                this.motor.stopMotor();
+            }
         }
         else if (!insideSensor.get() && outsideSensor.get()) {
             this.armUp = true;
