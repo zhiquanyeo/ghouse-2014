@@ -20,8 +20,11 @@ public class ShooterMechanism {
     private boolean isArmed = false;
     private boolean armRequested = false;
     private boolean fireRequested = false;
+    private boolean safeFireRequested = false;
     private long fireRequestedTime;
+    private long safeFireRequestedTime;
     private final int FIRE_TIME = 1000;
+    private final int SAFE_FIRE_TIME = 500;
     
     private boolean isOverride = false;
     
@@ -55,6 +58,13 @@ public class ShooterMechanism {
                 arm();
             }
         }
+        
+        if (safeFireRequested) {
+            if (System.currentTimeMillis() - safeFireRequestedTime > SAFE_FIRE_TIME) {
+                motor.stopMotor();
+                safeFireRequested = false;
+            }
+        }
     }
     
     public boolean isArmed() {
@@ -78,6 +88,14 @@ public class ShooterMechanism {
         if (!armRequested && isArmed) {
             fireRequested = true;
             fireRequestedTime = System.currentTimeMillis();
+            motor.set(0.4);
+        }
+    }
+    
+    public void safeFire() {
+        if (!armRequested && isArmed) {
+            safeFireRequested = true;
+            safeFireRequestedTime = System.currentTimeMillis();
             motor.set(0.4);
         }
     }

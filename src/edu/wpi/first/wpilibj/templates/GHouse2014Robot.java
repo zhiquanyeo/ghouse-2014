@@ -39,7 +39,7 @@ public class GHouse2014Robot extends SimpleRobot {
     private final int PRESSURE_SWITCH_CH = 1; //Digital IO
     private final int COMPRESSOR_RELAY_CH = 1; //Relay Slot
     
-    private final long TELEOP_SAFE_TIME = 18000; //18 seconds, change to 19 if Cliff is not happy
+    private final long TELEOP_SAFE_TIME = 118000; //118 seconds, switch to 119 if Cliff is not happy
         
     //==== Drivetrain Constants ====
     //Speed change solenoid channels
@@ -196,6 +196,7 @@ public class GHouse2014Robot extends SimpleRobot {
         
         //register our start time for safety
         long teleopStartTime = System.currentTimeMillis();
+        System.out.println("Teleop Start: " + teleopStartTime);
         safeToOperate = true;
         
         //Default loop
@@ -203,12 +204,13 @@ public class GHouse2014Robot extends SimpleRobot {
             //1) Sense
             //do a safety check
             if (safeToOperate && System.currentTimeMillis() - teleopStartTime > TELEOP_SAFE_TIME) {
+                System.out.println("Switching to UNSAFE");
                 safeToOperate = false;
                 SmartDashboard.putBoolean("Safe To Operate", safeToOperate);
                 //this was the initial time that we were set into unsafe mode
                 //trigger a fire if we are armed
                 if (shooterMechanism.isArmed()) {
-                    shooterMechanism.fire();
+                    shooterMechanism.safeFire();
                 }
             }
             
