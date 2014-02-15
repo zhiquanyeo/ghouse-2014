@@ -18,6 +18,10 @@ public class DeadReckoningEngine {
         public double x;
         public double y;
         public double theta;
+        
+        public String toString() {
+            return "(" + x + ", " + y + ") " + ((theta / Math.PI) * 180.0) + "deg";
+        }
     }
     
     private Position currentPosition = new Position();
@@ -56,6 +60,12 @@ public class DeadReckoningEngine {
     
     public void stop() {
         isRunning = false;
+    }
+    
+    public void setCurrentPosition(Position newPos) {
+        this.currentPosition.x = newPos.x;
+        this.currentPosition.y = newPos.y;
+        this.currentPosition.theta = newPos.theta;
     }
     
     public void updateState() {

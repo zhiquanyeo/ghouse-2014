@@ -10,10 +10,12 @@ package edu.wpi.first.wpilibj.templates;
 
 import edu.ghouse.drivesystem.MultiCANJaguar;
 import edu.ghouse.positional.DeadReckoningEngine;
+import edu.ghouse.positional.DeadReckoningEngine.Position;
 import edu.ghouse.robot2014.FeedMechanism;
 import edu.ghouse.robot2014.ScissorMechanism;
 import edu.ghouse.robot2014.ShooterMechanism;
 import edu.ghouse.vision.RobotCamera;
+import edu.ghouse.vision.RobotCamera.TargetReport;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
@@ -24,7 +26,9 @@ import edu.wpi.first.wpilibj.SimpleRobot;
 import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.can.CANTimeoutException;
+import edu.wpi.first.wpilibj.networktables.NetworkTable;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.tables.TableKeyNotDefinedException;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -135,11 +139,17 @@ public class GHouse2014Robot extends SimpleRobot {
     private DigitalInput num13 = new DigitalInput(13);
     
     private boolean safeToOperate = true;
+    private boolean useSafety = true;
+    
+    //Grab data from the SmartDashboard (sent via roborealm)
+    private NetworkTable server = NetworkTable.getTable("SmartDashboard");
+    
     
     public void robotInit() {
         System.out.println("Booting up");
         System.out.println("Initializing camera...");
         robotCamera = new RobotCamera();
+        
         
         //Set up the distance per pulse for the encoder
         leftEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION);
@@ -176,9 +186,21 @@ public class GHouse2014Robot extends SimpleRobot {
         rightEncoder.start();
         deadReckoningEngine.reset();
         deadReckoningEngine.start();
+        
+        double distanceToTarget;
+        boolean targetIsHot = false;
+        
+        Position currPos = deadReckoningEngine.getCurrentPosition();
+        
+        SmartDashboard.putString("Estimated Position", currPos.toString());
+        
         while (isEnabled() && isAutonomous()) {
             //Figure out where we are
             deadReckoningEngine.updateState();
+            
+            //We want to make sure we are going straight...
+            currPos = deadReckoningEngine.getCurrentPosition();
+            SmartDashboard.putString("Estimated Position", currPos.toString());
         }
         deadReckoningEngine.stop();
         
@@ -199,20 +221,60 @@ public class GHouse2014Robot extends SimpleRobot {
         System.out.println("Teleop Start: " + teleopStartTime);
         safeToOperate = true;
         
+        long lastCameraTime = System.currentTimeMillis();
+        long CAMERA_TIMEOUT = 1000; //5 times per second
+        
+        TargetReport report = robotCamera.getTargetReport();
+        
+        double distanceToTarget;
+        boolean targetIsHot = false;
+        
+        Position currPos = deadReckoningEngine.getCurrentPosition();
+        
+        SmartDashboard.putString("Estimated Position", currPos.toString());
+        
+        
         //Default loop
         while (isEnabled() && isOperatorControl()) {
             //1) Sense
             //do a safety check
-            if (safeToOperate && System.currentTimeMillis() - teleopStartTime > TELEOP_SAFE_TIME) {
-                System.out.println("Switching to UNSAFE");
-                safeToOperate = false;
-                SmartDashboard.putBoolean("Safe To Operate", safeToOperate);
-                //this was the initial time that we were set into unsafe mode
-                //trigger a fire if we are armed
-                if (shooterMechanism.isArmed()) {
-                    shooterMechanism.safeFire();
-                }
+//            if (safeToOperate && System.currentTimeMillis() - teleopStartTime > TELEOP_SAFE_TIME) {
+//                System.out.println("Switching to UNSAFE");
+//                safeToOperate = false;
+//                SmartDashboard.putBoolean("Safe To Operate", safeToOperate);
+//                //this was the initial time that we were set into unsafe mode
+//                //trigger a fire if we are armed
+//                if (shooterMechanism.isArmed()) {
+//                    shooterMechanism.safeFire();
+//                }
+//            }
+            
+            //Grab data off the network tables
+            try {
+                distanceToTarget = server.getNumber("DIST_TO_TARGET", -1.000);
             }
+            catch (TableKeyNotDefinedException e) {
+                distanceToTarget = -1.00;
+            }
+            
+            try {
+                targetIsHot = server.getBoolean("IS_HOT_TARGET", false);
+            }
+            catch (TableKeyNotDefinedException e) {
+                targetIsHot = false;
+            }
+            
+            //DEPRECATE 
+            //Camera stuff
+//            if (System.currentTimeMillis() - lastCameraTime > CAMERA_TIMEOUT) {
+//                report = robotCamera.getTargetReport();
+//                lastCameraTime = System.currentTimeMillis();
+//            }
+//            
+//            if (report != null) {
+//                SmartDashboard.putBoolean("Hot Target", report.Hot);
+//                SmartDashboard.putNumber("Target Distance", report.distance);
+//            }
             
             //update the feedMechanism
             feedMechanism.updateState();
@@ -227,6 +289,10 @@ public class GHouse2014Robot extends SimpleRobot {
             
             chassis.arcadeDrive(driveStick.getY(), -driveStick.getZ(), true);
             
+            //positional
+            deadReckoningEngine.updateState();
+            currPos = deadReckoningEngine.getCurrentPosition();
+            SmartDashboard.putString("Estimated Position", currPos.toString());
             
             //===== SPEED CHANGE DECISIONS =====
             //Take note of whether or not the trigger is pressed
@@ -339,7 +405,6 @@ public class GHouse2014Robot extends SimpleRobot {
         SmartDashboard.putBoolean("Can Raise Arm", !scissorMechanism.isScissorUp());
         
         //==== Shooter Mechanism Status ====
-        //SmartDashboard.putBoolean("Shooter Armed", shooterMechanism.isArmed());
         SmartDashboard.putBoolean("Shooter Armed", shooterMechanism.isArmed());
         
         //==== Encoder Status ====

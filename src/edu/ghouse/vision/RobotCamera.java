@@ -35,7 +35,7 @@ public class RobotCamera {
     final int LR_SCORE_LIMIT = 50;
     
     //Minimum area of particles to be considered
-    final int AREA_MINIMUM = 150;
+    final int AREA_MINIMUM = 110;
     
     //Maximum number of particles to process
     final int MAX_PARTICLES = 8;
@@ -50,15 +50,15 @@ public class RobotCamera {
     }
     
     public class TargetReport {
-        int verticalIndex;
-        int horizontalIndex;
-        boolean Hot;
-        double totalScore;
-        double leftScore;
-        double rightScore;
-        double tapeWidthScore;
-        double verticalScore;
-        double distance;
+        public int verticalIndex;
+        public int horizontalIndex;
+        public boolean Hot;
+        public double totalScore;
+        public double leftScore;
+        public double rightScore;
+        public double tapeWidthScore;
+        public double verticalScore;
+        public double distance;
     }
     
     //Scoring variables
@@ -89,7 +89,8 @@ public class RobotCamera {
         try {
             ColorImage image = camera.getImage();
             //Keep only green objects
-            BinaryImage thresholdImage = image.thresholdHSV(105, 137, 230, 255, 133, 183);
+//            BinaryImage thresholdImage = image.thresholdHSV(125, 154, 220, 255, 229, 255);
+            BinaryImage thresholdImage = image.thresholdHSV(76, 184, 227, 255, 96, 167);
             BinaryImage filteredImage = thresholdImage.particleFilter(cc); //Filter out small objects
             
             //iterate through each particle and score to see if it is a target
