@@ -13,6 +13,7 @@ import edu.ghouse.positional.DeadReckoningEngine;
 import edu.ghouse.robot2014.FeedMechanism;
 import edu.ghouse.robot2014.ScissorMechanism;
 import edu.ghouse.robot2014.ShooterMechanism;
+import edu.ghouse.vision.RobotCamera;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
@@ -38,8 +39,8 @@ public class GHouse2014Robot extends SimpleRobot {
     private final int PRESSURE_SWITCH_CH = 1; //Digital IO
     private final int COMPRESSOR_RELAY_CH = 1; //Relay Slot
     
-    private final boolean IS_USING_GAMEPAD = true;
-    
+    private final long TELEOP_SAFE_TIME = 18000; //18 seconds, change to 19 if Cliff is not happy
+        
     //==== Drivetrain Constants ====
     //Speed change solenoid channels
     private final int SPEED_CHANGE_CH = 1; //Pneumatics Slot
@@ -83,12 +84,17 @@ public class GHouse2014Robot extends SimpleRobot {
     private final int SPEED_CHANGE_BUTTON = 8;
     private final int SCISSOR_TOGGLE_BUTTON = 4;
     
+    private final int DRIVER_FIRE_BUTTON = 7;
+    private final int SHOOTER_FIRE_BUTTON = 8;
+    private final int DRIVER_SHOOT_OVERRIDE_BUTTON = 5;
+    private final int SHOOTER_SHOOT_OVERRIDE_BUTTON = 6;
+    
     /*** General Components ***/
     private Compressor compressor = new Compressor(PRESSURE_SWITCH_CH, COMPRESSOR_RELAY_CH);
     
     /*** Drivetrain Components ***/
-    private final int leftControllerChannels[] = {11, 19, 15};
-    private final int rightControllerChannels[] = {16, 13, 12};
+    private final int leftControllerChannels[] = {11, 19};
+    private final int rightControllerChannels[] = {16, 13};
     private MultiCANJaguar leftController, rightController;
     private RobotDrive chassis;
     private Solenoid speedChangeSolenoid = new Solenoid(SPEED_CHANGE_CH);
@@ -118,17 +124,22 @@ public class GHouse2014Robot extends SimpleRobot {
     //Support objects
     private final double AXLE_LENGTH = 2.359375; //feet
     private DeadReckoningEngine deadReckoningEngine = new DeadReckoningEngine(AXLE_LENGTH, leftEncoder, rightEncoder);
-
+    private RobotCamera robotCamera;
+    
     /*** Human Interface Components ***/
     Joystick driveStick = new Joystick(1);
+    Joystick shooterStick = new Joystick(2);
     
     //test code only
     private DigitalInput num12 = new DigitalInput(12);
     private DigitalInput num13 = new DigitalInput(13);
     
+    private boolean safeToOperate = true;
+    
     public void robotInit() {
         System.out.println("Booting up");
-        SmartDashboard.putBoolean("Using Gamepad", IS_USING_GAMEPAD);
+        System.out.println("Initializing camera...");
+        robotCamera = new RobotCamera();
         
         //Set up the distance per pulse for the encoder
         leftEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION);
@@ -183,9 +194,23 @@ public class GHouse2014Robot extends SimpleRobot {
         leftEncoder.start();
         rightEncoder.start();
         
+        //register our start time for safety
+        long teleopStartTime = System.currentTimeMillis();
+        safeToOperate = true;
+        
         //Default loop
         while (isEnabled() && isOperatorControl()) {
             //1) Sense
+            //do a safety check
+            if (safeToOperate && System.currentTimeMillis() - teleopStartTime > TELEOP_SAFE_TIME) {
+                safeToOperate = false;
+                SmartDashboard.putBoolean("Safe To Operate", safeToOperate);
+                //this was the initial time that we were set into unsafe mode
+                //trigger a fire if we are armed
+                if (shooterMechanism.isArmed()) {
+                    shooterMechanism.fire();
+                }
+            }
             
             //update the feedMechanism
             feedMechanism.updateState();
@@ -198,35 +223,21 @@ public class GHouse2014Robot extends SimpleRobot {
                 feedMechanism.setMotorEnabled(true);
             }
             
-            //===== DRIVING =====
-            if (IS_USING_GAMEPAD) {
-                chassis.arcadeDrive(driveStick.getY(), -driveStick.getZ(), true);
-            }
-            else {
-                chassis.arcadeDrive(driveStick.getY(), -driveStick.getX(), true);
-            }
+            chassis.arcadeDrive(driveStick.getY(), -driveStick.getZ(), true);
+            
             
             //===== SPEED CHANGE DECISIONS =====
             //Take note of whether or not the trigger is pressed
             //If so, activate the speed change. The trigger is button 1
-            if (IS_USING_GAMEPAD) {
-                if (driveStick.getRawButton(SPEED_CHANGE_BUTTON) == true) { //pressed
-                    speedChangeSolenoid.set(true);
-                }
-                else {
-                    speedChangeSolenoid.set(false);
-                }
+            if (driveStick.getRawButton(SPEED_CHANGE_BUTTON) == true) { //pressed
+                speedChangeSolenoid.set(true);
             }
             else {
-                if (driveStick.getButton(Joystick.ButtonType.kTrigger) == true) { //pressed
-                    speedChangeSolenoid.set(true);
-                }
-                else {
-                    speedChangeSolenoid.set(false);
-                }
+                speedChangeSolenoid.set(false);
             }
             
-            if (driveStick.getRawButton(FEED_ARM_TOGGLE_BUTTON)) {
+            
+            if (shooterStick.getRawButton(FEED_ARM_TOGGLE_BUTTON)) {
                 //button was pressed. are we up or down?
                 //don't do anything while we are in transit
                 if (!feedMechanism.isArmInTransit()) {
@@ -245,7 +256,7 @@ public class GHouse2014Robot extends SimpleRobot {
             }
             
             //Scissor mechanism
-            if (driveStick.getRawButton(SCISSOR_TOGGLE_BUTTON)) {
+            if (shooterStick.getRawButton(SCISSOR_TOGGLE_BUTTON)) {
                 if (!scissorMechanism.isScissorInTransit()) {
                     if (scissorMechanism.isScissorUp()) {
                         //we can just lower
@@ -268,8 +279,11 @@ public class GHouse2014Robot extends SimpleRobot {
             
             
             //===== SHOOTER =====
-            //TODO Test only. need to integrate with choo-choo limit switch
-            if (driveStick.getRawButton(7) && !driveStick.getRawButton(5)) {
+            //Both the shooter stick and driver stick have the ability to fire
+            //left trigger on the drive stick
+            //right trigger on the shooter stick
+            if (safeToOperate && (driveStick.getRawButton(DRIVER_FIRE_BUTTON) || shooterStick.getRawButton(SHOOTER_FIRE_BUTTON)) 
+                    && (!driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) && !shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
                 if (!shooterMechanism.isArmed())
                     shooterMechanism.arm();
                 else {
@@ -278,7 +292,7 @@ public class GHouse2014Robot extends SimpleRobot {
             }
             
             //override
-            if (driveStick.getRawButton(5)) {
+            if (safeToOperate && (driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) || shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
                 shooterMechanism.setOverride(true);
                 shooterMotor.set(0.3);
             }
@@ -289,15 +303,6 @@ public class GHouse2014Robot extends SimpleRobot {
                 }
                 
             }
-            
-            
-            //=====  Scissor =====
-            //ONLY raise the scissor if the feed is DOWN
-            
-            
-            //===== 
-            
-            //2) Act
             
             
             //Finally update driver station
@@ -338,6 +343,8 @@ public class GHouse2014Robot extends SimpleRobot {
         //==== Encoder Status ====
         SmartDashboard.putNumber("Left Encoder Distance", leftEncoder.getDistance());
         SmartDashboard.putNumber("Right Encoder Distance", rightEncoder.getDistance());
+        
+        SmartDashboard.putBoolean("Safe To Operate", safeToOperate);
         
     }
 }

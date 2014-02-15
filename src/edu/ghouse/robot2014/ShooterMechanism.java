@@ -40,7 +40,7 @@ public class ShooterMechanism {
         
         if (armRequested) {
             if (!isArmed) {
-                motor.set(0.3);
+                motor.set(0.4);
             }
             else {
                 motor.stopMotor();
@@ -78,7 +78,7 @@ public class ShooterMechanism {
         if (!armRequested && isArmed) {
             fireRequested = true;
             fireRequestedTime = System.currentTimeMillis();
-            motor.set(0.3);
+            motor.set(0.4);
         }
     }
     
