@@ -6,6 +6,7 @@
 
 package edu.ghouse.positional;
 
+import com.sun.squawk.util.MathUtils;
 import edu.wpi.first.wpilibj.Encoder;
 
 /**
@@ -19,8 +20,13 @@ public class DeadReckoningEngine {
         public double y;
         public double theta;
         
+        private double roundIt(double input) {
+            return MathUtils.round(input * 100) / 100.0;
+        }
+        
         public String toString() {
-            return "(" + x + ", " + y + ") " + ((theta / Math.PI) * 180.0) + "deg";
+            return "(" + roundIt(x) + ", " + roundIt(y) + ") " + roundIt((theta / Math.PI) * 180.0) + "deg";
+            //return "(" + x + ", " + y + ") " + ((theta / Math.PI) * 180.0) + "deg";
         }
     }
     

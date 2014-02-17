@@ -8,22 +8,25 @@
 package edu.wpi.first.wpilibj.templates;
 
 
+import com.sun.squawk.util.MathUtils;
+import com.sun.squawk.vm.CS;
 import edu.ghouse.drivesystem.MultiCANJaguar;
 import edu.ghouse.positional.DeadReckoningEngine;
 import edu.ghouse.positional.DeadReckoningEngine.Position;
 import edu.ghouse.robot2014.FeedMechanism;
 import edu.ghouse.robot2014.ScissorMechanism;
 import edu.ghouse.robot2014.ShooterMechanism;
-import edu.ghouse.vision.RobotCamera;
-import edu.ghouse.vision.RobotCamera.TargetReport;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.wpilibj.DriverStationLCD;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Preferences;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SimpleRobot;
 import edu.wpi.first.wpilibj.Solenoid;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.can.CANTimeoutException;
 import edu.wpi.first.wpilibj.networktables.NetworkTable;
@@ -128,7 +131,6 @@ public class GHouse2014Robot extends SimpleRobot {
     //Support objects
     private final double AXLE_LENGTH = 2.359375; //feet
     private DeadReckoningEngine deadReckoningEngine = new DeadReckoningEngine(AXLE_LENGTH, leftEncoder, rightEncoder);
-    private RobotCamera robotCamera;
     
     /*** Human Interface Components ***/
     Joystick driveStick = new Joystick(1);
@@ -139,27 +141,190 @@ public class GHouse2014Robot extends SimpleRobot {
     private DigitalInput num13 = new DigitalInput(13);
     
     private boolean safeToOperate = true;
-    private boolean useSafety = true;
+    private boolean useSafety = true; //used to verify that safety mode is on
     
     //Grab data from the SmartDashboard (sent via roborealm)
     private NetworkTable server = NetworkTable.getTable("SmartDashboard");
+    private double distanceToTarget = -1;
+    private boolean targetIsHot = false;
     
+    //Robot preferences
+    Preferences prefs = Preferences.getInstance();
+    
+    //Driving control mode
+    private final int CTRL_MODE_DUAL_STICK_ARCADE = 1;
+    private final int CTRL_MODE_SINGLE_STICK_ARCADE = 2;
+    private final int CTRL_MODE_TANK = 3;
+    private final int CTRL_MODE_DUAL_STICK_ARCADE_LEFTY = 4;
+    private int controlMode = CTRL_MODE_DUAL_STICK_ARCADE; //the default
+    
+    private boolean useExponentialScaling = false;
+    private final double DEFAULT_EXPO_VALUE = 4.0;
+    private double expoValue = DEFAULT_EXPO_VALUE;
+    
+    //Driver station messages
+    DriverStationLCD driverStation = DriverStationLCD.getInstance();
+    
+    //Exponential scaling function
+    public double expo(double input, double expoValue) {
+        double multiplier = 1.0;
+        if (input < 0) {
+            input = input * -1.0;
+            multiplier = -1.0;
+        }
+        double yVal = (MathUtils.exp(expoValue * input) - 1) / (MathUtils.exp(expoValue) - 1);
+        return multiplier * yVal;
+    }
+    
+    //Helper function to print current control mode
+    private String printCurrentControlMode() {
+        switch (controlMode) {
+            case CTRL_MODE_DUAL_STICK_ARCADE:
+                return "Dual Stick Arcade Drive";
+            case CTRL_MODE_SINGLE_STICK_ARCADE:
+                return "Single Stick Arcade Drive";
+            case CTRL_MODE_TANK:
+                return "Tank Drive";
+            case CTRL_MODE_DUAL_STICK_ARCADE_LEFTY:
+                return "Dual Stick Arcde Drive (Lefty)";
+        }
+        return "Dual Stick Arcade Drive";
+    }
+    
+    //Helper functions to get RoboRealm vision data
+    private double getVisualDistanceToTarget() {
+        double dist = -1.0;
+        try {
+            dist = server.getNumber("DIST_TO_TARGET", -1.000);
+        }
+        catch (TableKeyNotDefinedException e) {
+            dist = -1.00;
+        }
+        return dist;
+    }
+    
+    private boolean getIsTargetHot() {
+        boolean isHot = false;
+        try {
+            isHot = server.getBoolean("IS_HOT_TARGET", false);
+
+        }
+        catch (TableKeyNotDefinedException e) {
+            System.out.println("WARNING TableKeyNotDefined");
+            e.printStackTrace();
+            isHot = false;
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return isHot;
+    }
+    
+    //Helper function to take into account the control mode and expo steering
+    private void doDrive() {
+        double xVal, yVal, zVal, throttleVal;
+        xVal = driveStick.getX();
+        yVal = driveStick.getY();
+        zVal = driveStick.getZ();
+        throttleVal = driveStick.getThrottle();
+        boolean useSquare = true;
+        
+        if (useExponentialScaling) {
+            xVal = expo(xVal, expoValue);
+            yVal = expo(yVal, expoValue);
+            zVal = expo(zVal, expoValue);
+            throttleVal = expo(throttleVal, expoValue);
+            useSquare = false;
+        }
+        
+        if (controlMode == CTRL_MODE_DUAL_STICK_ARCADE) {
+            chassis.arcadeDrive(yVal, -zVal, useSquare);
+        }
+        else if (controlMode == CTRL_MODE_SINGLE_STICK_ARCADE) {
+            chassis.arcadeDrive(throttleVal, -zVal, useSquare);
+        }
+        else if (controlMode == CTRL_MODE_DUAL_STICK_ARCADE_LEFTY) {
+            chassis.arcadeDrive(throttleVal, -xVal, useSquare);
+        }
+        else {
+            //We need to swap the sticks for tankDrive
+            chassis.tankDrive(throttleVal, yVal, useSquare);
+        }
+        
+    }
     
     public void robotInit() {
         System.out.println("Booting up");
         System.out.println("Initializing camera...");
-        robotCamera = new RobotCamera();
         
+        //Preferences Default
+        boolean prefsWritten = false;
+        if (!prefs.containsKey("control_mode")) {
+            prefs.putString("control_mode", "dualarcade");
+            prefsWritten = true;
+        }
+        if (!prefs.containsKey("use_exponential")) {
+            prefs.putBoolean("use_exponential", false);
+            prefsWritten = true;
+        }
+        if (!prefs.containsKey("exponential_value")) {
+            prefs.putDouble("exponential_value", DEFAULT_EXPO_VALUE);
+            prefsWritten = true;
+        }
+        if (!prefs.containsKey("use_safety")) {
+            prefs.putBoolean("use_safety", true);
+            prefsWritten = true;
+        }
+        
+        if (prefsWritten) {
+            prefs.save();
+        }
+        
+        //Figure out our control mode
+        System.out.println("Reading control_mode from Preferences");
+        String controlModeStr = prefs.getString("control_mode", "dualarcade");
+        if ("dualarcade".equals(controlModeStr)) {
+            controlMode = CTRL_MODE_DUAL_STICK_ARCADE;
+        }
+        else if ("singlearcade".equals(controlModeStr)) {
+            controlMode = CTRL_MODE_SINGLE_STICK_ARCADE;
+        }
+        else if ("tank".equals(controlModeStr)) {
+            controlMode = CTRL_MODE_TANK;
+        }
+        else if ("dualarcadelefty".equals(controlModeStr)) {
+            controlMode = CTRL_MODE_DUAL_STICK_ARCADE_LEFTY;
+        }
+        else {
+            controlMode = CTRL_MODE_DUAL_STICK_ARCADE;
+        }
+        SmartDashboard.putString("Current Control Mode", printCurrentControlMode());
+        
+        //Figure out if we need to use exponential scaling
+        System.out.println("Reading use_exponential from Preferences");
+        useExponentialScaling = prefs.getBoolean("use_exponential", false);
+        SmartDashboard.putBoolean("Use Exponential Inputs", useExponentialScaling);
+        
+        System.out.println("Reading exponential_value from Preferences");
+        expoValue = prefs.getDouble("exponential_value", DEFAULT_EXPO_VALUE);
+        if (useExponentialScaling) {
+            SmartDashboard.putNumber("Exponential Value", expoValue);
+        }
+        
+        System.out.println("Reading use_safety from Preferences");
+        useSafety = prefs.getBoolean("use_safety", true);
+        SmartDashboard.putBoolean("Teleop Safety Mode", useSafety);
         
         //Set up the distance per pulse for the encoder
-        leftEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION);
-        rightEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION);
+        leftEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION * 2);
+        rightEncoder.setDistancePerPulse(WHEEL_DIAMETER / ENCODER_TOTAL_PULSES_PER_ROTATION * 2);
         
         try {
             leftController = new MultiCANJaguar(leftControllerChannels);
             rightController = new MultiCANJaguar(rightControllerChannels);
             
             chassis = new RobotDrive(leftController, rightController);
+            //chassis = new DebugRobotDrive(leftController, rightController);
             
             //We need to invert the motors
             chassis.setInvertedMotor(RobotDrive.MotorType.kRearLeft, true);
@@ -194,16 +359,121 @@ public class GHouse2014Robot extends SimpleRobot {
         
         SmartDashboard.putString("Estimated Position", currPos.toString());
         
+        double Kp = 0.03; //K factor
+        final double AUTO_DRIVE_SPEED = 0.4;
+        
+        //Autonomous State Machine
+        final int AUTO_STATE_DRIVE_FWD = 0;
+        final int AUTO_STATE_ALIGNMENT = 1;
+        final int AUTO_STATE_LOWER_GATE = 2;
+        final int AUTO_STATE_RAISE_SCISSOR = 3;
+        final int AUTO_STATE_READY_TO_FIRE = 4;
+        final int AUTO_STATE_FIRE = 5;
+        final int AUTO_STATE_STANDBY = 6;
+        
+        int currentAutoState = AUTO_STATE_DRIVE_FWD;
+        
+        //Test code
+        long autoStartTime = System.currentTimeMillis();
+        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: DRIVE");
+        driverStation.updateLCD();
+        
         while (isEnabled() && isAutonomous()) {
-            //Figure out where we are
+            //Update the component states
             deadReckoningEngine.updateState();
+            feedMechanism.updateState();
+            scissorMechanism.updateState();
+            shooterMechanism.updateState();
             
-            //We want to make sure we are going straight...
+            //update our current position on the field
             currPos = deadReckoningEngine.getCurrentPosition();
             SmartDashboard.putString("Estimated Position", currPos.toString());
-        }
-        deadReckoningEngine.stop();
+            
+            //TODO: Maybe take final adjustment measurements from the camera?
+            
+            //Actual state machine implementation
+            switch(currentAutoState) {
+                case AUTO_STATE_DRIVE_FWD: {
+                    double angle = currPos.theta;
+                    chassis.drive(AUTO_DRIVE_SPEED, angle * Kp);
+                    //transition check
+                    if (currPos.x > 14.5) {
+                        //Stop the motors
+                        chassis.drive(0, 0);
+                        //switch state to alignment mode
+                        currentAutoState = AUTO_STATE_ALIGNMENT;
+                        System.out.println("Stopping drive");
+                        System.out.println("Transitioning to ALIGNMENT");
+                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: ALIGNMENT");
+                        driverStation.updateLCD();
+                    }
+                } break;
+                case AUTO_STATE_ALIGNMENT: {
+                    //TODO if we need to do anything here, do it
+                    
+                    //Transition to next state
+                    feedMechanism.lowerArm();
+                    currentAutoState = AUTO_STATE_LOWER_GATE;
+                    System.out.println("Lowering Arm");
+                    System.out.println("Transitioning to LOWER_GATE");
+                    driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: LOWER_GATE");
+                        driverStation.updateLCD();
+                } break;
+                case AUTO_STATE_LOWER_GATE: {
+                    //Transition Check: Arm MUST be down and not in transit
+                    if (!feedMechanism.isArmUp() && !feedMechanism.isArmInTransit()) {
+                        scissorMechanism.raiseScissor();
+                        currentAutoState = AUTO_STATE_RAISE_SCISSOR;
+                        System.out.println("Raising Scissor");
+                        System.out.println("Transitioning to RAISE_SCISSOR");
+                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: RAISE_SCISSOR");
+                        driverStation.updateLCD();
+                    }
+                } break;
+                case AUTO_STATE_RAISE_SCISSOR: {
+                    //Transition Check: Scissor must be up and not in transit
+                    if (scissorMechanism.isScissorUp() && !scissorMechanism.isScissorInTransit()) {
+                        //make sure we are armed, then transition
+                        shooterMechanism.arm();
+                        currentAutoState = AUTO_STATE_READY_TO_FIRE;
+                        System.out.println("Arming Shooter");
+                        System.out.println("Transitioning to READY_TO_FIRE");
+                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: READY_TO_FIRE");
+                        driverStation.updateLCD();
+                    }
+                } break;
+                case AUTO_STATE_READY_TO_FIRE: {
+                    //Transition Check: firing mechanism must be armed
+                    if (shooterMechanism.isArmed()) {
+                        //FIRE!
+                        shooterMechanism.fire();
+                        currentAutoState = AUTO_STATE_FIRE;
+                        System.out.println("Firing");
+                        System.out.println("Transitioning to FIRE");
+                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: FIRE");
+                        driverStation.updateLCD();
+                    }
+                } break;
+                case AUTO_STATE_FIRE: {
+                    //Transition Check: Back to armed
+                    if (shooterMechanism.isArmed()) {
+                        //Lower the scissor
+                        scissorMechanism.lowerScissor();
+                        currentAutoState = AUTO_STATE_STANDBY;
+                        System.out.println("Lowering Scissor");
+                        System.out.println("Transitioning to STANDBY");
+                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: STANDBY");
+                        driverStation.updateLCD();
+                    }
+                } break;
+                case AUTO_STATE_STANDBY: {
+                    //TODO do nothing?
+                } break;
+            }
+        } 
         
+        deadReckoningEngine.stop();
+        driverStation.clear();
     }
 
     /**
@@ -215,19 +485,12 @@ public class GHouse2014Robot extends SimpleRobot {
         rightEncoder.reset();
         leftEncoder.start();
         rightEncoder.start();
+        deadReckoningEngine.start();
         
         //register our start time for safety
         long teleopStartTime = System.currentTimeMillis();
         System.out.println("Teleop Start: " + teleopStartTime);
         safeToOperate = true;
-        
-        long lastCameraTime = System.currentTimeMillis();
-        long CAMERA_TIMEOUT = 1000; //5 times per second
-        
-        TargetReport report = robotCamera.getTargetReport();
-        
-        double distanceToTarget;
-        boolean targetIsHot = false;
         
         Position currPos = deadReckoningEngine.getCurrentPosition();
         
@@ -238,43 +501,16 @@ public class GHouse2014Robot extends SimpleRobot {
         while (isEnabled() && isOperatorControl()) {
             //1) Sense
             //do a safety check
-//            if (safeToOperate && System.currentTimeMillis() - teleopStartTime > TELEOP_SAFE_TIME) {
-//                System.out.println("Switching to UNSAFE");
-//                safeToOperate = false;
-//                SmartDashboard.putBoolean("Safe To Operate", safeToOperate);
-//                //this was the initial time that we were set into unsafe mode
-//                //trigger a fire if we are armed
-//                if (shooterMechanism.isArmed()) {
-//                    shooterMechanism.safeFire();
-//                }
-//            }
-            
-            //Grab data off the network tables
-            try {
-                distanceToTarget = server.getNumber("DIST_TO_TARGET", -1.000);
+            if (useSafety && safeToOperate && System.currentTimeMillis() - teleopStartTime > TELEOP_SAFE_TIME) {
+                System.out.println("Switching to UNSAFE");
+                safeToOperate = false;
+                SmartDashboard.putBoolean("Safe To Operate", safeToOperate);
+                //this was the initial time that we were set into unsafe mode
+                //trigger a fire if we are armed
+                if (shooterMechanism.isArmed()) {
+                    shooterMechanism.safeFire();
+                }
             }
-            catch (TableKeyNotDefinedException e) {
-                distanceToTarget = -1.00;
-            }
-            
-            try {
-                targetIsHot = server.getBoolean("IS_HOT_TARGET", false);
-            }
-            catch (TableKeyNotDefinedException e) {
-                targetIsHot = false;
-            }
-            
-            //DEPRECATE 
-            //Camera stuff
-//            if (System.currentTimeMillis() - lastCameraTime > CAMERA_TIMEOUT) {
-//                report = robotCamera.getTargetReport();
-//                lastCameraTime = System.currentTimeMillis();
-//            }
-//            
-//            if (report != null) {
-//                SmartDashboard.putBoolean("Hot Target", report.Hot);
-//                SmartDashboard.putNumber("Target Distance", report.distance);
-//            }
             
             //update the feedMechanism
             feedMechanism.updateState();
@@ -287,7 +523,11 @@ public class GHouse2014Robot extends SimpleRobot {
                 feedMechanism.setMotorEnabled(true);
             }
             
-            chassis.arcadeDrive(driveStick.getY(), -driveStick.getZ(), true);
+            //chassis.arcadeDrive(driveStick.getY(), -driveStick.getZ(), true);
+            //chassis.tankDrive(driveStick.getY(), driveStick.getThrottle(), true);
+            //Use to doDrive method to control our driving
+            //we can handle all the exponential stuff there too
+            doDrive();
             
             //positional
             deadReckoningEngine.updateState();
@@ -311,6 +551,7 @@ public class GHouse2014Robot extends SimpleRobot {
                 if (!feedMechanism.isArmInTransit()) {
                     //If the arm is up, we lower it
                     if (feedMechanism.isArmUp()) {
+                        System.out.println("Lower Arm");
                         feedMechanism.lowerArm();
                     }
                     else {

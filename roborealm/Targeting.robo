@@ -4,18 +4,30 @@
   <auto_exposure>FALSE</auto_exposure>
   <auto_white_balance>TRUE</auto_white_balance>
   <brightness_value>50</brightness_value>
+  <camera_type>1</camera_type>
   <color_level_value>50</color_level_value>
   <compression_index>5</compression_index>
   <contrast_value>50</contrast_value>
   <exposure_value>50</exposure_value>
   <ip_address>10.3.54.11</ip_address>
-  <is_active>FALSE</is_active>
+  <is_active>TRUE</is_active>
   <password>FRC</password>
   <port>80</port>
-  <resolution>2</resolution>
+  <resolution>3</resolution>
   <sharpness_value>50</sharpness_value>
   <username>FRC</username>
 </Axis_Internet_Camera>
+<Radial_Distortion>
+  <center_x>0.5</center_x>
+  <center_y>0.5</center_y>
+  <coeff_a>-1000.0</coeff_a>
+  <coeff_b>1.0</coeff_b>
+  <coeff_c>0.0</coeff_c>
+  <coeff_d>0.0</coeff_d>
+  <coeff_e>0.0</coeff_e>
+  <crop_image>FALSE</crop_image>
+  <scale>1000.0</scale>
+</Radial_Distortion>
 <RGB_Filter>
   <channel>4</channel>
   <hue_value>50</hue_value>
@@ -91,26 +103,26 @@
   <thickness>1</thickness>
 </Blob_Replace>
 <VBScript_Program>
-  <script>list = GetArrayVariable("BFR_COORDINATES")
-if isArray(list) then
-	if ubound(list) &gt; 0 then
-		targetPixelHeight = 0
-		targetSamples = 0
-		imageHeight = GetVariable("IMAGE_HEIGHT")
-		targetHeight = 32
-		cameraFieldOfView = 49
-		
-		righty = list(1)
-		rightyy = list(7)
-		lefty = list(3)
-		leftyy = list(5)
-		
-		targetPixelHeight = ((lefty - leftyy) + (righty - rightyy)) / 2.0
-		totalDistance = (((targetHeight * imageHeight) / targetPixelHeight) / 2) / _
-			tan(((cameraFieldOfView * 3.14159)/180.0)/2.0)
-		Write totalDistance
-		SetVariable "DIST_TO_TARGET", ((totalDistance * 100) / 12) / 100
-	end if
+  <script>list = GetArrayVariable("BFR_COORDINATES")
+if isArray(list) then
+	if ubound(list) &gt; 0 then
+		targetPixelHeight = 0
+		targetSamples = 0
+		imageHeight = GetVariable("IMAGE_HEIGHT")
+		targetHeight = 32
+		cameraFieldOfView = 49
+		
+		righty = list(1)
+		rightyy = list(7)
+		lefty = list(3)
+		leftyy = list(5)
+		
+		targetPixelHeight = ((lefty - leftyy) + (righty - rightyy)) / 2.0
+		totalDistance = (((targetHeight * imageHeight) / targetPixelHeight) / 2) / _
+			tan(((cameraFieldOfView * 3.14159)/180.0)/2.0)
+		Write totalDistance
+		SetVariable "DIST_TO_TARGET", ((totalDistance * 100) / 12) / 100
+	end if
 end if</script>
   <source_mode>gui</source_mode>
   <tab_size_index>1</tab_size_index>
@@ -134,8 +146,7 @@ end if</script>
   <hostname>10.3.54.2</hostname>
   <port>1735</port>
   <prefix>/SmartDashboard/</prefix>
-  <variables_to_send>DIST_TO_TARGET
-IS_HOT_TARGET</variables_to_send>
+  <variables_to_send>DIST_TO_TARGET</variables_to_send>
   <variable_type_index>0</variable_type_index>
 </NetworkTables>
 <function>
@@ -146,18 +157,30 @@ IS_HOT_TARGET</variables_to_send>
   <auto_exposure>FALSE</auto_exposure>
   <auto_white_balance>TRUE</auto_white_balance>
   <brightness_value>50</brightness_value>
+  <camera_type>1</camera_type>
   <color_level_value>50</color_level_value>
   <compression_index>5</compression_index>
   <contrast_value>50</contrast_value>
   <exposure_value>50</exposure_value>
   <ip_address>10.3.54.11</ip_address>
-  <is_active>FALSE</is_active>
+  <is_active>TRUE</is_active>
   <password>FRC</password>
   <port>80</port>
-  <resolution>2</resolution>
+  <resolution>3</resolution>
   <sharpness_value>50</sharpness_value>
   <username>FRC</username>
 </Axis_Internet_Camera>
+<Radial_Distortion>
+  <center_x>0.5</center_x>
+  <center_y>0.5</center_y>
+  <coeff_a>-1000</coeff_a>
+  <coeff_b>1.0</coeff_b>
+  <coeff_c>0.0</coeff_c>
+  <coeff_d>0.0</coeff_d>
+  <coeff_e>0.0</coeff_e>
+  <crop_image>FALSE</crop_image>
+  <scale>1000.0</scale>
+</Radial_Distortion>
 <RGB_Filter>
   <channel>4</channel>
   <hue_value>50</hue_value>
@@ -224,13 +247,19 @@ IS_HOT_TARGET</variables_to_send>
 </Blob_Replace>
 <VBScript_Program>
   <script>blobCount = GetVariable("BLOB_COUNT")
-if blobCount &gt; 0 then
-	SetVariable "IS_HOT_TARGET", true
-else
-	SetVariable "IS_HOT_TARGET", false
-end if</script>
+SetBooleanVariable "IS_HOT_TARGET", (blobCount &gt; 0)
+</script>
   <source_mode>gui</source_mode>
   <tab_size_index>1</tab_size_index>
 </VBScript_Program>
 <Watch_Variables/>
+<NetworkTables>
+  <delay>100</delay>
+  <filter_type_index>0</filter_type_index>
+  <hostname>10.3.54.2</hostname>
+  <port>1735</port>
+  <prefix>/SmartDashboard/</prefix>
+  <variables_to_send>IS_HOT_TARGET</variables_to_send>
+  <variable_type_index>1</variable_type_index>
+</NetworkTables>
 </function>
