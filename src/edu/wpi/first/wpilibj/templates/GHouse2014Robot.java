@@ -360,7 +360,7 @@ public class GHouse2014Robot extends SimpleRobot {
         SmartDashboard.putString("Estimated Position", currPos.toString());
         
         double Kp = 0.03; //K factor
-        final double AUTO_DRIVE_SPEED = 0.4;
+        final double AUTO_DRIVE_SPEED = 0.6;
         
         //Autonomous State Machine
         final int AUTO_STATE_DRIVE_FWD = 0;
@@ -370,108 +370,213 @@ public class GHouse2014Robot extends SimpleRobot {
         final int AUTO_STATE_READY_TO_FIRE = 4;
         final int AUTO_STATE_FIRE = 5;
         final int AUTO_STATE_STANDBY = 6;
+        final int AUTO_STATE_STANDBY2 = 7;
         
         int currentAutoState = AUTO_STATE_DRIVE_FWD;
         
+        
+        final int PRE_FIRE_TIME = 500;
+        final int POST_FIRE_TIME = 500;
+        double preFireStart = -1;
+        double postFireStart = -1;
+        
         //Test code
         long autoStartTime = System.currentTimeMillis();
-        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: DRIVE");
-        driverStation.updateLCD();
+        shooterMechanism.arm();
         
-        while (isEnabled() && isAutonomous()) {
-            //Update the component states
-            deadReckoningEngine.updateState();
-            feedMechanism.updateState();
-            scissorMechanism.updateState();
-            shooterMechanism.updateState();
-            
-            //update our current position on the field
-            currPos = deadReckoningEngine.getCurrentPosition();
-            SmartDashboard.putString("Estimated Position", currPos.toString());
-            
-            //TODO: Maybe take final adjustment measurements from the camera?
-            
-            //Actual state machine implementation
-            switch(currentAutoState) {
-                case AUTO_STATE_DRIVE_FWD: {
-                    double angle = currPos.theta;
-                    chassis.drive(AUTO_DRIVE_SPEED, angle * Kp);
-                    //transition check
-                    if (currPos.x > 14.5) {
-                        //Stop the motors
-                        chassis.drive(0, 0);
-                        //switch state to alignment mode
-                        currentAutoState = AUTO_STATE_ALIGNMENT;
-                        System.out.println("Stopping drive");
-                        System.out.println("Transitioning to ALIGNMENT");
-                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: ALIGNMENT");
-                        driverStation.updateLCD();
-                    }
-                } break;
-                case AUTO_STATE_ALIGNMENT: {
-                    //TODO if we need to do anything here, do it
+        boolean isOffsetLeft = false;
+        
+        targetIsHot = getIsTargetHot();
+        if (targetIsHot) {
+            System.out.println("Running HOT target program");
+            while (isEnabled() && isAutonomous()) {
+                deadReckoningEngine.updateState();
+                feedMechanism.updateState();
+                scissorMechanism.updateState();
+                shooterMechanism.updateState();
+                
+                //update our current position on the field
+                currPos = deadReckoningEngine.getCurrentPosition();
+                SmartDashboard.putString("Estimated Position", currPos.toString());
+                
+                switch (currentAutoState) {
+                    case AUTO_STATE_DRIVE_FWD: {
+                        //Do straight line driving... or something resembling it
+                        double angle = currPos.theta;
+                        chassis.drive(-AUTO_DRIVE_SPEED, -angle * Kp);
+
+                        //Transition Check: Drive 14.5 feet
+                        if (currPos.x > 7) {
+                            feedMechanism.lowerArm();
+                            //Stop the motors
+                            chassis.drive(0, 0);
+                            //switch state to alignment mode
+                            currentAutoState = AUTO_STATE_READY_TO_FIRE;
+                            System.out.println("Stopping drive");
+                            System.out.println("Transitioning to READY_TO_FIRE");
+                            preFireStart = System.currentTimeMillis();
+                        }
+                    } break;
+                    case AUTO_STATE_READY_TO_FIRE: {
+                        if (System.currentTimeMillis() - preFireStart > PRE_FIRE_TIME && shooterMechanism.isArmed()) {
+                            //FIRE!
+                            shooterMechanism.fire();
+                            currentAutoState = AUTO_STATE_FIRE;
+                            System.out.println("Firing");
+                            System.out.println("Transitioning to FIRE");
+
+                        }
+                    } break;
+                    case AUTO_STATE_FIRE: {
+                        if (shooterMechanism.isArmed() && postFireStart == -1) {
+                            postFireStart = System.currentTimeMillis();
+                            System.out.println("Setting Post Fire Start:");
+                        }
+                        if (shooterMechanism.isArmed() && System.currentTimeMillis() - postFireStart > 1000) {
+                            //Lower the scissor
+                            currentAutoState = AUTO_STATE_ALIGNMENT;
+                            System.out.println("Lowering Arm");
+                            System.out.println("Transitioning to ALIGNMENT");
+                            //decide which direction we are offset
+                            isOffsetLeft = currPos.theta > 0;
+                        }
+                    } break;
+                    case AUTO_STATE_ALIGNMENT: {
+                        if (isOffsetLeft) {
+                            chassis.drive(0, -0.2);
+                            if (currPos.theta < 0) {
+                                //we crossed
+                                chassis.drive(0,0);
+                                currentAutoState = AUTO_STATE_STANDBY;
+                                System.out.println("Transitioning to STANDBY");
+                            }
+                        }
+                        else {
+                            chassis.drive(0, 0.2);
+                            if (currPos.theta > 0) {
+                                //we crossed
+                                chassis.drive(0,0);
+                                currentAutoState = AUTO_STATE_STANDBY;
+                                System.out.println("Transitioning to STANDBY");
+                            }
+                        }
+                        
+                    } break;
+                    case AUTO_STATE_STANDBY: {
+                        //Do straight line driving... or something resembling it
+                        double angle = currPos.theta;
+                        chassis.drive(AUTO_DRIVE_SPEED, -angle * Kp);
+
+                        //Transition Check: Drive 14.5 feet
+                        if (currPos.x < 0) {
+                            //Stop the motors
+                            chassis.drive(0, 0);
+                            //switch state to alignment mode
+                            currentAutoState = AUTO_STATE_STANDBY2;
+                            System.out.println("Stopping drive");
+                            System.out.println("Transitioning to STANDBY2");
+                        }
+                    } break;
                     
-                    //Transition to next state
-                    feedMechanism.lowerArm();
-                    currentAutoState = AUTO_STATE_LOWER_GATE;
-                    System.out.println("Lowering Arm");
-                    System.out.println("Transitioning to LOWER_GATE");
-                    driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: LOWER_GATE");
-                        driverStation.updateLCD();
-                } break;
-                case AUTO_STATE_LOWER_GATE: {
-                    //Transition Check: Arm MUST be down and not in transit
-                    if (!feedMechanism.isArmUp() && !feedMechanism.isArmInTransit()) {
-                        scissorMechanism.raiseScissor();
-                        currentAutoState = AUTO_STATE_RAISE_SCISSOR;
-                        System.out.println("Raising Scissor");
-                        System.out.println("Transitioning to RAISE_SCISSOR");
-                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: RAISE_SCISSOR");
-                        driverStation.updateLCD();
-                    }
-                } break;
-                case AUTO_STATE_RAISE_SCISSOR: {
-                    //Transition Check: Scissor must be up and not in transit
-                    if (scissorMechanism.isScissorUp() && !scissorMechanism.isScissorInTransit()) {
-                        //make sure we are armed, then transition
-                        shooterMechanism.arm();
-                        currentAutoState = AUTO_STATE_READY_TO_FIRE;
-                        System.out.println("Arming Shooter");
-                        System.out.println("Transitioning to READY_TO_FIRE");
-                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: READY_TO_FIRE");
-                        driverStation.updateLCD();
-                    }
-                } break;
-                case AUTO_STATE_READY_TO_FIRE: {
-                    //Transition Check: firing mechanism must be armed
-                    if (shooterMechanism.isArmed()) {
-                        //FIRE!
-                        shooterMechanism.fire();
-                        currentAutoState = AUTO_STATE_FIRE;
-                        System.out.println("Firing");
-                        System.out.println("Transitioning to FIRE");
-                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: FIRE");
-                        driverStation.updateLCD();
-                    }
-                } break;
-                case AUTO_STATE_FIRE: {
-                    //Transition Check: Back to armed
-                    if (shooterMechanism.isArmed()) {
-                        //Lower the scissor
-                        scissorMechanism.lowerScissor();
-                        currentAutoState = AUTO_STATE_STANDBY;
-                        System.out.println("Lowering Scissor");
-                        System.out.println("Transitioning to STANDBY");
-                        driverStation.println(DriverStationLCD.Line.kUser1, 0, "State: STANDBY");
-                        driverStation.updateLCD();
-                    }
-                } break;
-                case AUTO_STATE_STANDBY: {
-                    //TODO do nothing?
-                } break;
+                }
             }
-        } 
-        
+        }
+        else {
+            System.out.println("NOT using HOT program");
+            while (isEnabled() && isAutonomous()) {
+                //Update the component states
+                deadReckoningEngine.updateState();
+                feedMechanism.updateState();
+                scissorMechanism.updateState();
+                shooterMechanism.updateState();
+
+                //update our current position on the field
+                currPos = deadReckoningEngine.getCurrentPosition();
+                SmartDashboard.putString("Estimated Position", currPos.toString());
+
+                //TODO: Maybe take final adjustment measurements from the camera?
+
+                //Actual state machine implementation
+                switch(currentAutoState) {
+                    case AUTO_STATE_DRIVE_FWD: {
+                        //Do straight line driving... or something resembling it
+                        double angle = currPos.theta;
+                        chassis.drive(-AUTO_DRIVE_SPEED, -angle * Kp);
+
+                        //Transition Check: Drive 14.5 feet
+                        if (currPos.x > 14.5) {
+                            //Stop the motors
+                            chassis.drive(0, 0);
+                            //switch state to alignment mode
+                            currentAutoState = AUTO_STATE_ALIGNMENT;
+                            System.out.println("Stopping drive");
+                            System.out.println("Transitioning to ALIGNMENT");
+
+                        }
+                    } break;
+                    case AUTO_STATE_ALIGNMENT: {
+                        //TODO if we need to do anything here, do it
+
+                        //Transition to next state
+                        feedMechanism.lowerArm();
+                        currentAutoState = AUTO_STATE_LOWER_GATE;
+                        System.out.println("Lowering Arm");
+                        System.out.println("Transitioning to LOWER_GATE");
+
+                    } break;
+                    case AUTO_STATE_LOWER_GATE: {
+                        //Transition Check: Arm MUST be down and not in transit
+                        if (!feedMechanism.isArmUp() && !feedMechanism.isArmInTransit()) {
+                            scissorMechanism.raiseScissor();
+                            currentAutoState = AUTO_STATE_RAISE_SCISSOR;
+                            System.out.println("Raising Scissor");
+                            System.out.println("Transitioning to RAISE_SCISSOR");
+
+                        }
+                    } break;
+                    case AUTO_STATE_RAISE_SCISSOR: {
+                        //Transition Check: Scissor must be up and not in transit
+                        if (scissorMechanism.isScissorUp() && !scissorMechanism.isScissorInTransit()) {
+                            //make sure we are armed, then transition
+                            shooterMechanism.arm();
+                            currentAutoState = AUTO_STATE_READY_TO_FIRE;
+                            System.out.println("Arming Shooter");
+                            System.out.println("Transitioning to READY_TO_FIRE");
+                            preFireStart = System.currentTimeMillis();
+                        }
+                    } break;
+                    case AUTO_STATE_READY_TO_FIRE: {
+                        //Transition Check: firing mechanism must be armed
+                        if (System.currentTimeMillis() - preFireStart > PRE_FIRE_TIME && shooterMechanism.isArmed()) {
+                            //FIRE!
+                            shooterMechanism.fire();
+                            currentAutoState = AUTO_STATE_FIRE;
+                            System.out.println("Firing");
+                            System.out.println("Transitioning to FIRE");
+
+                        }
+                    } break;
+                    case AUTO_STATE_FIRE: {
+                        //Transition Check: Back to armed
+                        if (shooterMechanism.isArmed() && postFireStart == -1) {
+                            postFireStart = System.currentTimeMillis();
+                            System.out.println("Setting Post Fire Start:");
+                        }
+                        if (shooterMechanism.isArmed() && System.currentTimeMillis() - postFireStart > POST_FIRE_TIME) {
+                            //Lower the scissor
+                            scissorMechanism.lowerScissor();
+                            currentAutoState = AUTO_STATE_STANDBY;
+                            System.out.println("Lowering Scissor");
+                            System.out.println("Transitioning to STANDBY");
+
+                        }
+                    } break;
+                    case AUTO_STATE_STANDBY: {
+                        //TODO do nothing?
+                    } break;
+                }
+            } 
+        }
         deadReckoningEngine.stop();
         driverStation.clear();
     }
@@ -496,6 +601,11 @@ public class GHouse2014Robot extends SimpleRobot {
         
         SmartDashboard.putString("Estimated Position", currPos.toString());
         
+        //Super Shoot Mode: 
+        //Drop the arm, Raise the scissor and Fire
+        boolean superShootMode = false;
+        String superShootState = "init"; //init, gate_lowering, gate_down, scissor_rising, scissor_up, firing, fired
+        long preFireStart = -1, postFireStart = -1;
         
         //Default loop
         while (isEnabled() && isOperatorControl()) {
@@ -521,6 +631,45 @@ public class GHouse2014Robot extends SimpleRobot {
             }
             else {
                 feedMechanism.setMotorEnabled(true);
+            }
+            
+            //Check Super Shoot Mode
+            if (superShootMode) {
+                if (superShootState.equals("init")) {
+                    //drop the gate
+                    feedMechanism.lowerArm();
+                    superShootState = "gate_lowering";
+                }
+                else if (superShootState.equals("gate_lowering")) {
+                    if (!feedMechanism.isArmUp() && !feedMechanism.isArmInTransit()) {
+                        superShootState = "gate_down";
+                    }
+                }
+                else if (superShootState.equals("gate_down")) {
+                    scissorMechanism.raiseScissor();
+                    superShootState = "scissor_raising";
+                }
+                else if (superShootState.equals("scissor_raising")) {
+                    if (scissorMechanism.isScissorUp() && !scissorMechanism.isScissorInTransit()) {
+                        superShootState = "scissor_up";
+                        preFireStart = System.currentTimeMillis();
+                    }
+                }
+                else if (superShootState.equals("scissor_up")) {
+                    if (System.currentTimeMillis() - preFireStart > 200) {
+                        shooterMechanism.fire();
+                        superShootState = "firing";
+                    }
+                }
+                else if (superShootState.equals("firing")) {
+                    if (shooterMechanism.isArmed()) {
+                        superShootState = "fired";
+                    }
+                }
+                else if (superShootState.equals("fired")) {
+                    superShootState = "init";
+                    superShootMode = false;
+                }
             }
             
             //chassis.arcadeDrive(driveStick.getY(), -driveStick.getZ(), true);
@@ -551,7 +700,6 @@ public class GHouse2014Robot extends SimpleRobot {
                 if (!feedMechanism.isArmInTransit()) {
                     //If the arm is up, we lower it
                     if (feedMechanism.isArmUp()) {
-                        System.out.println("Lower Arm");
                         feedMechanism.lowerArm();
                     }
                     else {
@@ -591,7 +739,7 @@ public class GHouse2014Robot extends SimpleRobot {
             //Both the shooter stick and driver stick have the ability to fire
             //left trigger on the drive stick
             //right trigger on the shooter stick
-            if (safeToOperate && (driveStick.getRawButton(DRIVER_FIRE_BUTTON) || shooterStick.getRawButton(SHOOTER_FIRE_BUTTON)) 
+            if (!superShootMode && safeToOperate && (driveStick.getRawButton(DRIVER_FIRE_BUTTON) || shooterStick.getRawButton(SHOOTER_FIRE_BUTTON)) 
                     && (!driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) && !shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
                 if (!shooterMechanism.isArmed())
                     shooterMechanism.arm();
@@ -601,7 +749,7 @@ public class GHouse2014Robot extends SimpleRobot {
             }
             
             //override
-            if (safeToOperate && (driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) || shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
+            if (!superShootMode && safeToOperate && (driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) || shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
                 shooterMechanism.setOverride(true);
                 shooterMotor.set(0.3);
             }
@@ -613,9 +761,15 @@ public class GHouse2014Robot extends SimpleRobot {
                 
             }
             
+            //Super Shoot Mode
+            if (shooterStick.getRawButton(7) && !superShootMode) {
+                superShootMode = true; //Put in the superShootMode request
+            }
             
             //Finally update driver station
             updateRobotState();
+            
+            SmartDashboard.putBoolean("Super Shoot Mode", superShootMode);
         }
     }
     

@@ -3,12 +3,12 @@
   <auto_back_light>TRUE</auto_back_light>
   <auto_exposure>FALSE</auto_exposure>
   <auto_white_balance>TRUE</auto_white_balance>
-  <brightness_value>50</brightness_value>
+  <brightness_value>10</brightness_value>
   <camera_type>1</camera_type>
   <color_level_value>50</color_level_value>
   <compression_index>5</compression_index>
   <contrast_value>50</contrast_value>
-  <exposure_value>50</exposure_value>
+  <exposure_value>10</exposure_value>
   <ip_address>10.3.54.11</ip_address>
   <is_active>TRUE</is_active>
   <password>FRC</password>
@@ -156,12 +156,12 @@ end if</script>
   <auto_back_light>TRUE</auto_back_light>
   <auto_exposure>FALSE</auto_exposure>
   <auto_white_balance>TRUE</auto_white_balance>
-  <brightness_value>50</brightness_value>
+  <brightness_value>10</brightness_value>
   <camera_type>1</camera_type>
   <color_level_value>50</color_level_value>
   <compression_index>5</compression_index>
   <contrast_value>50</contrast_value>
-  <exposure_value>50</exposure_value>
+  <exposure_value>10</exposure_value>
   <ip_address>10.3.54.11</ip_address>
   <is_active>TRUE</is_active>
   <password>FRC</password>
