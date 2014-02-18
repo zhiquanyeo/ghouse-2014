@@ -717,6 +717,7 @@ public class GHouse2014Robot extends SimpleRobot {
                 if (!scissorMechanism.isScissorInTransit()) {
                     if (scissorMechanism.isScissorUp()) {
                         //we can just lower
+                        System.out.println("Lowering");
                         scissorMechanism.lowerScissor();
                         feedMechanism.setMotorEnabled(true);
                     }
@@ -749,9 +750,10 @@ public class GHouse2014Robot extends SimpleRobot {
             }
             
             //override
-            if (!superShootMode && safeToOperate && (driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) || shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
+            if (safeToOperate && (driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) || shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
                 shooterMechanism.setOverride(true);
                 shooterMotor.set(0.3);
+                superShootMode = false;
             }
             else {
                 if (shooterMechanism.getOverride()) {

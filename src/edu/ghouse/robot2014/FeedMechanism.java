@@ -77,7 +77,7 @@ public class FeedMechanism {
             this.armUp = false;
             this.armInTransit = false;
             if (this.motorEnabled) {
-                this.motor.set(-1);
+                this.motor.set(1);
             }
             else {
                 this.motor.stopMotor();
