@@ -1,0 +1,103 @@
+<xml version="1.0">
+<dashboard>
+	<widget field="Super Shoot Mode" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="365" y="264"/>
+	</widget>
+	<widget field="Current Control Mode" type="String" class="edu.wpi.first.smartdashboard.gui.elements.FormattedField">
+		<location x="127" y="363"/>
+		<width>403</width>
+		<property name="Font Size" value="18"/>
+	</widget>
+	<widget field="Teleop Safety Mode" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="3" y="371"/>
+	</widget>
+	<widget field="DIST_TO_TARGET" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.FormattedField">
+		<location x="687" y="308"/>
+		<property name="Font Size" value="18"/>
+	</widget>
+	<widget field="IS_HOT_TARGET" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="687" y="288"/>
+		<width>173</width>
+	</widget>
+	<widget field="Use Exponential Inputs" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="3" y="353"/>
+	</widget>
+	<static-widget class="edu.wpi.first.smartdashboard.gui.elements.Label">
+		<location x="484" y="37"/>
+		<property name="Text" value="Processed Image"/>
+	</static-widget>
+	<static-widget class="edu.wpi.first.smartdashboard.gui.elements.Label">
+		<location x="790" y="38"/>
+		<property name="Text" value="Webcam Image"/>
+	</static-widget>
+	<static-widget class="edu.wpi.first.smartdashboard.camera.WPICameraExtension">
+		<location x="483" y="55"/>
+		<width>297</width>
+		<height>226</height>
+		<property name="Camera IP Address" value="127.0.0.1"/>
+	</static-widget>
+	<static-widget class="edu.wpi.first.smartdashboard.camera.WPICameraExtension">
+		<location x="790" y="52"/>
+		<width>307</width>
+		<height>232</height>
+		<property name="Camera IP Address" value="10.3.54.11"/>
+	</static-widget>
+	<widget field="Estimated Position" type="String" class="edu.wpi.first.smartdashboard.gui.elements.FormattedField">
+		<location x="3" y="285"/>
+		<width>632</width>
+		<height>40</height>
+		<property name="Font Size" value="15"/>
+	</widget>
+	<static-widget class="edu.wpi.first.smartdashboard.gui.elements.ConnectionIndicator">
+		<location x="2" y="0"/>
+		<width>1330</width>
+		<property name="Graphics" value="Simple"/>
+	</static-widget>
+	<static-widget class="edu.wpi.first.smartdashboard.gui.elements.Label">
+		<location x="5" y="41"/>
+		<width>91</width>
+		<height>17</height>
+		<property name="Text" value="Runtime Variables"/>
+	</static-widget>
+	<widget field="Shooter Armed" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="372" y="97"/>
+	</widget>
+	<widget field="Can Raise Scissor" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="369" y="197"/>
+	</widget>
+	<widget field="Can Raise Arm" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="369" y="217"/>
+	</widget>
+	<widget field="Feed Arm In Transit" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="2" y="329"/>
+	</widget>
+	<widget field="Scissor Up" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="372" y="139"/>
+	</widget>
+	<widget field="Feed Arm Up" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="372" y="116"/>
+	</widget>
+	<widget field="Scissor In Transit" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="112" y="328"/>
+	</widget>
+	<static-widget class="edu.wpi.first.smartdashboard.gui.elements.RobotPreferences">
+		<location x="5" y="64"/>
+		<height>145</height>
+	</static-widget>
+	<widget field="Safe To Operate" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.BooleanBox">
+		<location x="336" y="44"/>
+		<width>127</width>
+		<height>36</height>
+	</widget>
+	<widget field="Right Encoder Distance" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="5" y="250"/>
+		<property name="Editable" value="false"/>
+	</widget>
+	<widget field="Left Encoder Distance" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="12" y="223"/>
+		<property name="Editable" value="false"/>
+	</widget>
+</dashboard>
+<live-window>
+</live-window>
+</xml>
