@@ -87,9 +87,9 @@ public class GHouse2014Robot extends SimpleRobot {
     
     
     //==== Human Interface Button Constants ====
-    private final int FEED_ARM_TOGGLE_BUTTON = 2;
-    private final int SPEED_CHANGE_BUTTON = 8;
-    private final int SCISSOR_TOGGLE_BUTTON = 4;
+    private final int FEED_ARM_TOGGLE_BUTTON = 10; //co driver, Joystick 1
+    private final int SPEED_CHANGE_BUTTON = 8; //driver, Joystick 2
+    private final int SCISSOR_TOGGLE_BUTTON = 7; //codriver, Joystick 1
     
     private final int DRIVER_FIRE_BUTTON = 7;
     private final int SHOOTER_FIRE_BUTTON = 8;
@@ -133,8 +133,8 @@ public class GHouse2014Robot extends SimpleRobot {
     private DeadReckoningEngine deadReckoningEngine = new DeadReckoningEngine(AXLE_LENGTH, leftEncoder, rightEncoder);
     
     /*** Human Interface Components ***/
-    Joystick driveStick = new Joystick(1);
-    Joystick shooterStick = new Joystick(2);
+    Joystick driveStick = new Joystick(2);
+    Joystick shooterStick = new Joystick(1);
     
     //test code only
     private DigitalInput num12 = new DigitalInput(12);
@@ -764,7 +764,7 @@ public class GHouse2014Robot extends SimpleRobot {
             }
             
             //Super Shoot Mode
-            if (shooterStick.getRawButton(7) && !superShootMode) {
+            if (shooterStick.getRawButton(9) && !superShootMode) {
                 superShootMode = true; //Put in the superShootMode request
             }
             
