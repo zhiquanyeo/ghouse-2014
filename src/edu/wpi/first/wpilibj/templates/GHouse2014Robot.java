@@ -607,6 +607,9 @@ public class GHouse2014Robot extends SimpleRobot {
         String superShootState = "init"; //init, gate_lowering, gate_down, scissor_rising, scissor_up, firing, fired
         long preFireStart = -1, postFireStart = -1;
         
+        //This means we have a shoot action queued up
+        boolean shootActionQueued = false;
+        
         //Default loop
         while (isEnabled() && isOperatorControl()) {
             //1) Sense
@@ -633,8 +636,18 @@ public class GHouse2014Robot extends SimpleRobot {
                 feedMechanism.setMotorEnabled(true);
             }
             
+            //See if we have something queued up for shoot
+            if (shootActionQueued) {
+                //if the arm is now down
+                if (!feedMechanism.isArmUp()) {
+                    shooterMechanism.fire();
+                    shootActionQueued = false;
+                }
+                //otherwise we wait
+            }
+            
             //Check Super Shoot Mode
-            if (superShootMode) {
+            if (!shootActionQueued && superShootMode) {
                 if (superShootState.equals("init")) {
                     //drop the gate
                     feedMechanism.lowerArm();
@@ -740,12 +753,26 @@ public class GHouse2014Robot extends SimpleRobot {
             //Both the shooter stick and driver stick have the ability to fire
             //left trigger on the drive stick
             //right trigger on the shooter stick
-            if (!superShootMode && safeToOperate && (driveStick.getRawButton(DRIVER_FIRE_BUTTON) || shooterStick.getRawButton(SHOOTER_FIRE_BUTTON)) 
+            if (!shootActionQueued && !superShootMode && safeToOperate && (driveStick.getRawButton(DRIVER_FIRE_BUTTON) || shooterStick.getRawButton(SHOOTER_FIRE_BUTTON)) 
                     && (!driveStick.getRawButton(DRIVER_SHOOT_OVERRIDE_BUTTON) && !shooterStick.getRawButton(SHOOTER_SHOOT_OVERRIDE_BUTTON))) {
-                if (!shooterMechanism.isArmed())
-                    shooterMechanism.arm();
-                else {
-                    shooterMechanism.fire();
+                //If the arm is up, we need to lower it first, and then queue the operation
+                if (feedMechanism.isArmUp()) {
+                    feedMechanism.lowerArm();
+                    
+                    //we can safely arm regardless
+                    if (!shooterMechanism.isArmed()) {
+                        shooterMechanism.arm();
+                    }
+                    else {
+                        shootActionQueued = true;
+                    }
+                }
+                else { //Otherwise we are good to go
+                    if (!shooterMechanism.isArmed())
+                        shooterMechanism.arm();
+                    else {
+                        shooterMechanism.fire();
+                    }
                 }
             }
             
